@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es-CR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JUDIX</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Cinzel:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+<!-- PORTADA -->
+<section id="portada">
+  <img class="logo" src="img/logo.jpg" alt="JUDIX. Justicia, lógica y súper inteligencia">
+  <p class="eslogan">Dos versiones. Una verdad por descubrir.<br>Una decisión que lo cambia todo.</p>
+  <div class="bloques">
+    <img class="afiche" src="img/afiche.jpg" alt="Afiche de JUDIX: el Juez Woc en su estrado, entre dos abogados que argumentan">
+    <div style="display:grid;gap:18px;min-width:0">
+      <div style="display:grid;gap:8px">
+        <p class="eyebrow">Simulación judicial en 3D · Derecho civil costarricense</p>
+        <h2 style="font-size:26px">Usted es el Juez Woc</h2>
+        <p style="color:var(--muted)">Entre a la sala, observe a las partes y escuche, en voz alta, a la técnica judicial, a los abogados y a los testigos. Luego decida. Su asistente de inteligencia artificial lo acompaña, pero no siempre tiene razón. Resuelva conforme al derecho y a la prueba, no conforme a quién argumenta mejor.</p>
+      </div>
+      <div class="caso activo">
+        <span class="num">CASO 001 · NIVEL INICIAL</span>
+        <h3>La casa en disputa</h3>
+        <p>Dos hermanos copropietarios. Uno reclama ₡8 millones por obras en la vivienda común. El otro asegura que nunca las autorizó.</p>
+        <div><button class="btn" id="btnIniciar" type="button">Entrar a la sala</button></div>
+      </div>
+      <div class="caso bloq"><span class="num">CASO 002 · PRÓXIMAMENTE</span><h3>La servidumbre del camino viejo</h3></div>
+      <div class="caso bloq"><span class="num">CASO 003 · PRÓXIMAMENTE</span><h3>El inquilino que no se va</h3></div>
+      <p style="font-size:15px;color:var(--muted)"><b style="color:var(--ink)">Índice de excelencia judicial</b> (100 puntos): valoración probatoria 30 · fundamentación jurídica 30 · debido proceso 20 · imparcialidad 10 · uso crítico de la IA 10. <span id="record"></span></p>
+    </div>
+  </div>
+  <p class="lema">«EN JUDIX, LA IA TE AYUDA A PENSAR. <b>PERO LA JUSTICIA DEPENDE DE VOS</b>».</p>
+  <p style="font-size:13px;color:var(--muted);text-align:center">Caso ficticio con fines docentes y de entretenimiento. Personas, expediente y montos son inventados.</p>
+</section>
+
+<!-- JUEGO -->
+<section id="juego" hidden>
+  <div id="stage" aria-label="Sala de audiencias en 3D"></div>
+  <div class="barra"><i id="hudBarra"></i></div>
+  <div class="hud">
+    <span class="marca">JUDIX</span>
+    <span class="fase" id="hudFase">CASO 001</span>
+    <span class="indice">Índice <b id="hudIndice">0</b>/100</span>
+    <button type="button" class="salir conm" id="btnVoz" aria-pressed="true" title="Activar o silenciar las voces">VOZ</button><button type="button" class="salir conm" id="btnSon" aria-pressed="true" title="Activar o silenciar música y efectos">SONIDO</button><button type="button" class="salir" id="btnSalir" aria-label="Salir a la portada">Salir</button>
+  </div>
+  <div id="tag" class="tag" hidden></div>
+  <div id="capaDlg" class="capa" hidden></div>
+  <div id="capaHoja" class="capa" hidden></div>
+  <div id="faseCard" class="fasecard" hidden></div>
+  <div id="cargando" class="cargando">PREPARANDO LA SALA…</div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/caso-001.js"></script>
+<script src="js/motor3d.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/juego.js"></script>
+</body>
+</html>
