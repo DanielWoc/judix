@@ -26,12 +26,13 @@ js/caso-001.js      Caso 001: personajes, facturas, rutas y GUION (contenido jur
 js/motor3d.js       Sala, figuras procedimentales de respaldo, tareas del guion y cámaras (Three.js r128)
 js/personajes.js    Personajes con esqueleto: carga, animaciones, mirada, boca, parpadeo y gestos
 js/vendor/          GLTFLoader y SkeletonUtils de Three.js r128
-js/audio.js         Música y efectos (Web Audio) y voces (speechSynthesis)
+js/audio.js         Música y efectos (Web Audio); voces neuronales grabadas, con la del navegador como respaldo
 js/juego.js         Flujo del guion, decisiones, puntuación, apelación e índice final
 img/                Logo, afiche, despacho (fondo sin WebGL), retratos y ventana
 modelos/            Personajes y animaciones GLB (Microsoft Rocketbox, MIT) y LICENCIAS.md
 herramientas/       Guiones de Blender para convertir y teñir modelos
-audio/              Audio grabado; hoy todo el sonido es sintetizado
+audio/voces/        Voces neuronales es-CR (MP3) e indice.json con tiempos de palabras y visemas
+herramientas/voces/ Generador de voces con Azure AI Speech (Node.js)
 ```
 
 ## Notas técnicas
@@ -39,6 +40,9 @@ audio/              Audio grabado; hoy todo el sonido es sintetizado
 - Los archivos de `js/` son **scripts clásicos**, no módulos: comparten el ámbito global y se cargan en este orden: `caso-001` → `motor3d` → `personajes` → `audio` → `juego`. No cambie ese orden ni los convierta en módulos ES sin revisar las dependencias entre archivos.
 - Los personajes con esqueleto se cargan desde `modelos/` mientras se muestra la portada. Si no llegan en 20 s, o si falta el cargador GLTF, cada personaje conserva su figura procedimental. No elimine `humano()` de `js/motor3d.js`, porque es el respaldo.
 - Al aplicar una animación a un modelo, descarte siempre las pistas de huesos que el modelo no tiene: en Three.js r128 esas pistas se aplican a la raíz del personaje y la desplazan (véase `rigAdaptar()`).
+- **La clave de Azure nunca se guarda en el proyecto.** `generar_voces.mjs` la lee de `AZURE_SPEECH_KEY` y `AZURE_SPEECH_REGION`. No la escriba en código, documentación, commits ni archivos `.env` del repositorio.
+- Las voces se indexan por `personaje|texto exacto`. Si cambia un texto aprobado del guion, regenere las voces (`node herramientas/voces/generar_voces.mjs`); mientras tanto, esa línea usa la voz del navegador. Los anuncios de fase y de apelación del generador replican las plantillas de `js/juego.js`.
+- Juan (es-CR-JuanNeural) da voz a los hombres y María (es-CR-MariaNeural) a las mujeres; el tono de cada personaje está en `PERFILES` del generador.
 - `modelos/LICENCIAS.md` debe acompañar siempre al juego, porque así lo exige la licencia MIT de Rocketbox.
 - Three.js r128 se carga desde cdnjs. Si no hay WebGL o la biblioteca no carga, el juego sigue funcionando con `img/despacho.jpg` de fondo.
 - Las rutas de imágenes en JavaScript son relativas a `index.html`; en `css/estilos.css` son relativas a `css/` (`../img/...`).

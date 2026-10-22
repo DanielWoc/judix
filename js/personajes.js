@@ -9,6 +9,10 @@ const RIG_MUJERES = new Set(["laura","mora","p1","p3","p5"]);
 const RIG_CLIPS = ["caminar","sentarse","levantarse","reposo_h","sentado_h","hablar_h","pensar_h","reposo_m","sentada_m","hablar_m"];
 const RIG_ALTURA_REF = .8952;   // altura de la raíz Bip01 del esqueleto de referencia de las animaciones masculinas
 const RIG_PASO = 1.15;          // metros por segundo del clip de caminar a velocidad 1
+// Forma de los labios por visema de Azure (0-21): [abierta «a», redondeada «o», cerrada «p/b/m»].
+const RIG_VISEMAS = { 0:[0,0,0], 1:[.55,0,0], 2:[.8,0,0], 3:[.3,.6,0], 4:[.5,0,0], 5:[.3,.2,0], 6:[.35,0,0], 7:[0,.75,0], 8:[.1,.8,0],
+  9:[.6,.3,0], 10:[.3,.5,0], 11:[.7,0,0], 12:[.4,0,0], 13:[.2,.3,0], 14:[.3,0,0], 15:[.15,0,0], 16:[.1,.4,0], 17:[.25,0,0],
+  18:[.05,0,.6], 19:[.25,0,0], 20:[.3,0,0], 21:[0,0,1] };
 const RIG_VEL_TRANS = 1.35;     // sentarse y levantarse algo más ágiles que la captura original
 const RIG_SUPERIOR = /Spine1|Spine2|Neck|Head|Clavicle|UpperArm|Forearm|Hand|Finger/;
 
@@ -177,11 +181,15 @@ function rigGestos(h, dt){
 // Boca al hablar y parpadeo, con las expresiones faciales del modelo.
 function rigCara(h, dt, t){
   const r = h.rig; if (!r.morfos.length) return;
-  const ab = h.talking ? Math.abs(Math.sin(t*12.5 + h.seed))*(.55 + .45*Math.sin(t*2.7 + h.seed)) : 0;
-  h.open += (ab - h.open) * k(dt,18);
+  // Con voz grabada, la boca sigue la energía del audio y la forma de los labios sigue los visemas de Azure.
+  const vb = h.talking && typeof vozBoca === "function" ? vozBoca() : null, vis = vb != null ? vozVisema() : -1;
+  const ab = h.talking ? (vb != null ? vb : Math.abs(Math.sin(t*12.5 + h.seed))*(.55 + .45*Math.sin(t*2.7 + h.seed))) : 0;
+  h.open += (ab - h.open) * k(dt, vb != null ? 25 : 18);
   if (t > h.nextBlink){ h.blinkT = .13; h.nextBlink = t + 2.2 + Math.random()*3.8; }
   h.blinkT -= dt; r.parp += ((h.blinkT > 0 ? 1 : 0) - r.parp) * k(dt, 30);
-  const o = h.open, fo = Math.sin(t*3.1 + h.seed)*.5 + .5;
+  const o = h.open, fo = Math.sin(t*3.1 + h.seed)*.5 + .5, F = vis >= 0 ? RIG_VISEMAS[vis] || RIG_VISEMAS[0] : null;
+  const fa = F ? F[0] : o*.45*fo, foo = F ? F[1] : o*.35*(1-fo), fp = F ? F[2] : 0;
+  r.forma = r.forma || [0,0,0]; r.forma[0] += (fa - r.forma[0]) * k(dt,22); r.forma[1] += (foo - r.forma[1]) * k(dt,22); r.forma[2] += (fp - r.forma[2]) * k(dt,22);
   r.morfos.forEach(m => { const d = m.morphTargetDictionary, i = m.morphTargetInfluences, s = (n, v) => { if (d[n] != null) i[d[n]] = v; };
-    s("bocaAbierta", o*.55); s("visemaA", o*.45*fo); s("visemaO", o*.35*(1-fo)); s("parpadeoI", r.parp); s("parpadeoD", r.parp); });
+    s("bocaAbierta", o*.55*(1 - r.forma[2])); s("visemaA", r.forma[0]); s("visemaO", r.forma[1]); s("visemaP", r.forma[2]); s("parpadeoI", r.parp); s("parpadeoD", r.parp); });
 }

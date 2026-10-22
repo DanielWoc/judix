@@ -1,0 +1,8 @@
+{
+  "name": "judix-voces",
+  "private": true,
+  "description": "Genera las voces neuronales de JUDIX con Azure AI Speech.",
+  "type": "module",
+  "scripts": { "voces": "node generar_voces.mjs" },
+  "dependencies": { "microsoft-cognitiveservices-speech-sdk": "1.40.0" }
+}

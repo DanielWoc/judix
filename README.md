@@ -22,6 +22,10 @@ npx serve -l 8000              (si tiene Node.js)
 
 Luego abra `http://localhost:8000` en Chrome, Edge o Firefox. Se requiere conexión a internet para las fuentes y para Three.js. La primera carga descarga unos 13 MB de personajes y animaciones.
 
+## Voces
+
+El juego usa voces neuronales con acento costarricense (Azure AI Speech) cuando existen los audios de `audio/voces/`. Para generarlos, siga `herramientas/voces/README.md`. Necesita su propia clave de Azure, que se lee de una variable de entorno y nunca se guarda en el proyecto. Sin esos audios, el juego usa la voz del navegador.
+
 ## Estructura
 
 Véase `CLAUDE.md`, que también contiene las reglas del proyecto.

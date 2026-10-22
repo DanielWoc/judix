@@ -61,18 +61,20 @@ function mostrarDialogo(e){
 }
 function tipear(txt, who){
   const el = $("dlgTxt");
-  let revelar = 0, vozFin = false;
+  let revelar = 0, vozFin = false, empezo = false;
   const hablando = decir(txt, who, {
-    start: () => { if (speaker) speaker.talking = true; if (who === "ia") iaActiva = true; },
+    start: () => { empezo = true; if (speaker) speaker.talking = true; if (who === "ia") iaActiva = true; },
     end: () => { vozFin = true; revelar = txt.length; if (speaker) speaker.talking = false; },
     boundary: ev => { if (typeof ev.charIndex === "number") revelar = Math.max(revelar, ev.charIndex + (ev.charLength || 6)); }
   });
   if (who === "ia") SFX.holo();
   if (reduce){ el.textContent = txt; typing = null; if (!hablando) setTimeout(()=>{ if (speaker) speaker.talking = false; }, 600); return; }
-  const cps = hablando ? 13.5*((PERFIL[who]||{}).r||1) : 46;
+  // Con voz grabada, el texto avanza al ritmo de su duración y de los tiempos de cada palabra.
+  const cps = hablando ? (hablando.dur ? txt.length / hablando.dur : 13.5*((PERFIL[who]||{}).r||1)) : 46;
+  if (!(hablando && hablando.dur)) empezo = true;
   let i = 0, last = performance.now(), acc = 0;
   typing = { txt, raf:0 };
-  const paso = now => { acc += (now-last)/1000*cps; last = now; const n = Math.min(txt.length, Math.max(Math.floor(acc), Math.round(revelar*.98)));
+  const paso = now => { if (empezo) acc += (now-last)/1000*cps; last = now; const n = Math.min(txt.length, Math.max(Math.floor(acc), Math.round(revelar*.98)));
     if (n > i){ i = n; el.textContent = txt.slice(0,i); }
     if (i < txt.length) typing.raf = requestAnimationFrame(paso);
     else { typing = null; if (!hablando || vozFin) setTimeout(()=>{ if (speaker && !typing) speaker.talking = false; }, 350); } };
@@ -160,7 +162,7 @@ function avanzar(){ if (S.i < GUION.length-1){ S.i++; pintar(); } }
 // Espera los modelos 3D como máximo 20 s; si no llegan, el juego sigue con las figuras procedimentales.
 function esperarPersonajes(){ return Promise.race([PERSONAJES, new Promise(ok => setTimeout(ok, 20000))]); }
 async function iniciar(){
-  audioInit(); desbloquearVoz();
+  audioInit(); desbloquearVoz(); precargarVoces();
   S = nuevo(); $("portada").hidden = true; $("juego").hidden = false; document.body.style.overflow = "hidden";
   if (!construida){ construida = true; $("cargando").hidden = false; try { await document.fonts.ready; } catch(e){} iniciar3D(); await esperarPersonajes(); }
   $("cargando").hidden = true;

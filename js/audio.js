@@ -65,8 +65,52 @@ function paraVoz(t){
   return t.replace(/₡\s?([\d.]+)/g, (_, n) => { const v = Number(n.replace(/\./g,"")); if (v % 1000000 === 0){ const m = v/1000000; return (m === 1 ? "un millón" : m + " millones") + " de colones"; } return v.toLocaleString("es-CR") + " colones"; })
     .replace(/Licda\./g,"licenciada").replace(/Lic\./g,"licenciado").replace(/[«»]/g,"").replace(/\bF-0(\d+)/g,"factura cero $1").replace(/art\./g,"artículo");
 }
+/* Voces neuronales pregrabadas (Azure AI Speech, es-CR), generadas con herramientas/voces/generar_voces.mjs.
+   Cada línea trae los tiempos de sus palabras y sus visemas. Si una línea no tiene audio, se usa la voz del navegador. */
+const VOCES = { indice:null, crudos:new Map(), turno:0, fuente:null, linea:null, t0:0, cb:null, palabra:0, visema:0, analizador:null, datos:null };
+fetch("audio/voces/indice.json").then(r => r.ok ? r.json() : null).then(j => {
+  if (!j || !j.lineas || !Object.keys(j.lineas).length) return; VOCES.indice = j.lineas;
+  const b = document.getElementById("btnVoz"); if (b && !VOZ.sup){ b.disabled = false; b.title = "Activar o silenciar las voces"; b.setAttribute("aria-pressed", String(VOZ.on)); }
+}).catch(() => {});
+function vozLinea(texto, who){ return VOCES.indice && VOCES.indice[who + "|" + texto] || null; }
+// Descarga anticipada de los MP3 (comprimidos); se decodifican al momento de hablar.
+function precargarVoces(){ if (!VOCES.indice) return; Object.values(VOCES.indice).forEach(e => vozCrudo(e)); }
+function vozCrudo(e){ if (!VOCES.crudos.has(e.archivo)) VOCES.crudos.set(e.archivo, fetch("audio/voces/" + e.archivo).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })); return VOCES.crudos.get(e.archivo); }
+function decirNeural(e, cb){
+  const C = SND.ctx, turno = ++VOCES.turno;
+  vozCrudo(e).then(b => C.decodeAudioData(b.slice(0))).then(buf => {
+    if (turno !== VOCES.turno) return;
+    if (!VOCES.analizador){ VOCES.analizador = C.createAnalyser(); VOCES.analizador.fftSize = 512; VOCES.datos = new Float32Array(512); VOCES.analizador.connect(C.destination); }
+    const src = C.createBufferSource(); src.buffer = buf; src.connect(VOCES.analizador);
+    Object.assign(VOCES, { fuente:src, linea:e, cb, palabra:0, visema:0, t0:C.currentTime + .04 });
+    src.onended = () => { if (VOCES.fuente !== src) return; VOCES.fuente = null; VOCES.linea = null; if (cb.end) cb.end(); };
+    src.start(VOCES.t0); if (cb.start) setTimeout(cb.start, 40);
+    const reloj = () => { if (VOCES.fuente !== src) return; const L = e, ms = (C.currentTime - VOCES.t0) * 1000;
+      while (VOCES.palabra < L.palabras.length && L.palabras[VOCES.palabra][0] <= ms){ const fin = L.palabras[VOCES.palabra++][1]; if (cb.boundary) cb.boundary({ charIndex:fin - 1, charLength:1 }); }
+      requestAnimationFrame(reloj); };
+    reloj();
+  }).catch(() => { if (turno === VOCES.turno && cb.end) cb.end(); });
+  return { dur:e.dur / 1000 };
+}
+// Apertura de la boca (0 a 1) según la energía de la voz que suena; null si no hay voz neuronal en curso.
+function vozBoca(){
+  if (!VOCES.fuente || !VOCES.analizador || SND.ctx.currentTime < VOCES.t0) return VOCES.fuente ? 0 : null;
+  VOCES.analizador.getFloatTimeDomainData(VOCES.datos); let s = 0; for (let i = 0; i < VOCES.datos.length; i++) s += VOCES.datos[i] * VOCES.datos[i];
+  return Math.min(1, Math.sqrt(s / VOCES.datos.length) * 6.5);
+}
+// Visema de Azure (0-21) que corresponde al instante actual; -1 si no hay.
+function vozVisema(){
+  const L = VOCES.linea; if (!VOCES.fuente || !L || !L.visemas.length) return -1;
+  const ms = (SND.ctx.currentTime - VOCES.t0) * 1000, V = L.visemas;
+  if (VOCES.visema >= V.length || V[VOCES.visema][0] > ms) VOCES.visema = 0;
+  while (VOCES.visema + 1 < V.length && V[VOCES.visema + 1][0] <= ms) VOCES.visema++;
+  return V[VOCES.visema][0] <= ms ? V[VOCES.visema][1] : 0;
+}
 function decir(texto, who, cb={}){
-  if (!VOZ.on || !VOZ.sup) return false;
+  if (!VOZ.on) return false;
+  const e = vozLinea(texto, who);
+  if (e && SND.ctx){ callar(); return decirNeural(e, cb); }
+  if (!VOZ.sup) return false;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(paraVoz(texto)), v = vozPara(who), pf = PERFIL[who] || PERFIL.narrador;
@@ -76,5 +120,8 @@ function decir(texto, who, cb={}){
     speechSynthesis.speak(u); return true;
   } catch(e){ return false; }
 }
-function callar(){ if (VOZ.sup) try { speechSynthesis.cancel(); } catch(e){} }
+function callar(){
+  VOCES.turno++; if (VOCES.fuente){ const f = VOCES.fuente; VOCES.fuente = null; VOCES.linea = null; try { f.stop(); } catch(e){} }
+  if (VOZ.sup) try { speechSynthesis.cancel(); } catch(e){}
+}
 function desbloquearVoz(){ if (!VOZ.sup) return; try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } catch(e){} }

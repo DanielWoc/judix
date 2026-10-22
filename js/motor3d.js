@@ -272,7 +272,8 @@ function animarHumano(h, dt, t){
   if (h.pose === "think") pitch = .12;
   h.yaw += (yaw - h.yaw) * k(dt,5);
   h.chest.rotation.y = h.yaw*.3; h.head.rotation.y = h.yaw*.7; J(h.head,"x",pitch);
-  const ab = h.talking ? Math.abs(Math.sin(t*12.5 + h.seed))*(.55 + .45*Math.sin(t*2.7 + h.seed)) : 0;
+  const vb = h.talking && typeof vozBoca === "function" ? vozBoca() : null;
+  const ab = h.talking ? (vb != null ? vb : Math.abs(Math.sin(t*12.5 + h.seed))*(.55 + .45*Math.sin(t*2.7 + h.seed))) : 0;
   h.open += (ab - h.open) * k(dt,18);
   h.mouth.lower.position.y = .066 - h.open*.013; h.mouth.inner.scale.y = .15 + h.open*1.2;
   if (t > h.nextBlink){ h.blinkT = .13; h.nextBlink = t + 2.2 + Math.random()*3.8; }
