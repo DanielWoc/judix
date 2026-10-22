@@ -1,7 +1,7 @@
 /* JUDIX · Motor 3D (Three.js r128): sala, personajes procedimentales, animación y cámaras. */
 /* Script clásico: comparte el ámbito global con los demás archivos de js/. Orden de carga en index.html: caso-001 → motor3d → audio → juego. */
 const $ = id => document.getElementById(id);
-let GL = false, renderer, scene, camera, clock, t3 = 0;
+let PERSONAJES = Promise.resolve(), GL = false, renderer, scene, camera, clock, t3 = 0;
 const H = {}; const V = (x,y,z) => new THREE.Vector3(x,y,z);
 const mats = {};
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -241,6 +241,7 @@ function tarea(h, dt){
 
 function animarHumano(h, dt, t){
   tarea(h, dt);
+  if (h.rig) return animarRig(h, dt, t);
   h.rot += ang(h.rotT - h.rot) * k(dt,6);
   h.sit += (h.sitT - h.sit) * k(dt,4.5);
   h.walk += (h.walkT - h.walk) * k(dt,8);
@@ -296,7 +297,7 @@ const SHOTS = {
   ia: () => [V(.55,2.15,-2.75), V(1.75,1.9,-5.1)],
   orbit: (t) => { const a = Math.sin(t*.13)*1.05; return [V(Math.sin(a)*7.6, 4.3, -1.6 + Math.cos(a)*7.6), V(0,1.4,-3.6)]; }
 };
-function headPos(h){ const v = V(0,0,0); h.head.getWorldPosition(v); v.y += .12; return v; }
+function headPos(h){ const v = V(0,0,0); if (h.rig){ h.rig.huesos.Bip01_Head.getWorldPosition(v); v.y += .09; return v; } h.head.getWorldPosition(v); v.y += .12; return v; }
 function shotHumano(h){
   const hp = headPos(h), f = V(Math.sin(h.rot),0,Math.cos(h.rot)), side = V(f.z,0,-f.x);
   const asp = camera.aspect, d = (asp < .8 ? 2.2 : 1.6) + (h === H.juez ? .45 : 0);
@@ -357,6 +358,7 @@ function iniciar3D(){
     $("stage").appendChild(renderer.domElement);
     scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(50, 1, .1, 60); clock = new THREE.Clock();
     construirSala(); GL = true;
+    PERSONAJES = typeof vestirPersonajes === "function" ? vestirPersonajes().catch(e => { console.warn("JUDIX: se usan las figuras procedimentales.", e); }) : Promise.resolve();
     camPos = V(0,4.6,9.5); camLook = V(0,1.2,-3.4);
     redimensionar(); addEventListener("resize", redimensionar);
     $("stage").addEventListener("pointermove", e => { const r = $("stage").getBoundingClientRect(); parX = ((e.clientX-r.left)/r.width - .5)*2; parY = ((e.clientY-r.top)/r.height - .5)*2; });

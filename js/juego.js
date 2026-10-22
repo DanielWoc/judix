@@ -157,10 +157,12 @@ function mostrarFinal(){
 }
 
 function avanzar(){ if (S.i < GUION.length-1){ S.i++; pintar(); } }
+// Espera los modelos 3D como máximo 20 s; si no llegan, el juego sigue con las figuras procedimentales.
+function esperarPersonajes(){ return Promise.race([PERSONAJES, new Promise(ok => setTimeout(ok, 20000))]); }
 async function iniciar(){
   audioInit(); desbloquearVoz();
   S = nuevo(); $("portada").hidden = true; $("juego").hidden = false; document.body.style.overflow = "hidden";
-  if (!construida){ construida = true; $("cargando").hidden = false; try { await document.fonts.ready; } catch(e){} iniciar3D(); }
+  if (!construida){ construida = true; $("cargando").hidden = false; try { await document.fonts.ready; } catch(e){} iniciar3D(); await esperarPersonajes(); }
   $("cargando").hidden = true;
   asentar(0); if (GL){ camPos.set(0,4.6,9.5); camLook.set(0,1.2,-3.4); }
   pintar();
@@ -179,7 +181,7 @@ async function start(data){
   $("btnIniciar").addEventListener("click", iniciar);
   record();
   if (data && data.S){ S = data.S; $("portada").hidden = true; $("juego").hidden = false; document.body.style.overflow = "hidden";
-    if (!construida){ construida = true; try { await document.fonts.ready; } catch(e){} iniciar3D(); }
+    if (!construida){ construida = true; try { await document.fonts.ready; } catch(e){} iniciar3D(); await esperarPersonajes(); }
     $("cargando").hidden = true; asentar(S.i); pintar(); }
 }
 window.claude?.hot?.snapshot?.(() => ({ S: SNAP }));

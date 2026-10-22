@@ -20,8 +20,12 @@ python -m http.server 8000     (o: py -m http.server 8000 en Windows)
 npx serve -l 8000              (si tiene Node.js)
 ```
 
-Luego abra `http://localhost:8000` en Chrome, Edge o Firefox. Se requiere conexión a internet para las fuentes y para Three.js.
+Luego abra `http://localhost:8000` en Chrome, Edge o Firefox. Se requiere conexión a internet para las fuentes y para Three.js. La primera carga descarga unos 13 MB de personajes y animaciones.
 
 ## Estructura
 
 Véase `CLAUDE.md`, que también contiene las reglas del proyecto.
+
+## Créditos
+
+Los personajes 3D y sus animaciones provienen de Microsoft Rocketbox (licencia MIT). Véase `modelos/LICENCIAS.md`.
