@@ -1,0 +1,989 @@
+<meta charset="utf-8">
+<title>JUDIX</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Cinzel:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: portada desplazable; el juego es una sala 3D a pantalla completa con HUD arriba y diálogo u hoja de decisión abajo. Look único oscuro, fiel al afiche. */
+:root{
+  color-scheme:dark;
+  --bg:#05080F; --panel:rgba(12,20,36,.92); --panel2:#132039; --ink:#E9EDF5; --muted:#A3AEC4; --line:#2A3858;
+  --gold:#D8B46C; --gold2:#F2D9A2; --holo:#4C9BFF; --holo-soft:rgba(76,155,255,.14);
+  --ok:#4CC38A; --warn:#E5B04C; --bad:#F0606A;
+  --f-display:"Cinzel", "Trajan Pro", Georgia, serif;
+  --f-body:"Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  --gl:max(16px, env(safe-area-inset-left, 0px)); --gr:max(16px, env(safe-area-inset-right, 0px));
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-body);font-size:16.5px;line-height:1.55;padding-left:var(--gl);padding-right:var(--gr);padding-block:0 40px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--bg)}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:.02em}
+p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--holo);outline-offset:2px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:11px 22px;border-radius:4px;border:1px solid var(--gold);
+  background:linear-gradient(180deg,#E6C687,#B98F45);color:#1A1205;font-family:var(--f-display);font-weight:700;letter-spacing:.08em;font-size:14.5px;text-transform:uppercase}
+.btn:hover{filter:brightness(1.08)}
+.btn.sec{background:transparent;color:var(--gold2)}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--holo)}
+
+/* Portada */
+#portada{max-width:960px;margin:0 auto;display:grid;gap:26px;padding-top:20px}
+.logo{width:100%;border-radius:6px;display:block;box-shadow:0 0 0 1px var(--line)}
+.eslogan{font-family:var(--f-display);font-size:clamp(20px,4vw,28px);line-height:1.3;color:var(--gold2);text-align:center;text-wrap:balance}
+.bloques{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:24px;align-items:start}
+.afiche{width:100%;border-radius:6px;display:block;box-shadow:0 0 0 1px var(--line)}
+.caso{display:grid;gap:8px;padding:18px;border:1px solid var(--line);border-radius:6px;background:#0D1526}
+.caso.activo{border-color:var(--gold)}
+.caso .num{font-family:var(--f-mono);font-size:12px;color:var(--muted);letter-spacing:.1em}
+.caso h3{font-size:19px}
+.caso p{color:var(--muted);font-size:15px}
+.caso.bloq{opacity:.55}
+.lema{font-family:var(--f-mono);font-size:13px;letter-spacing:.06em;color:var(--muted);text-align:center;border-top:1px solid var(--line);padding-top:18px}
+.lema b{color:var(--gold2);font-weight:500}
+
+/* Juego 3D */
+#juego{position:fixed;inset:0;z-index:20;background:#05080F;overflow:hidden;user-select:none;-webkit-user-select:none}
+#stage{position:absolute;inset:0;cursor:pointer}
+#stage canvas{display:block;width:100%;height:100%}
+#stage.sinGL{background:url("img/despacho.jpg") center/cover no-repeat}
+.hud{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;gap:12px;
+  padding:calc(env(safe-area-inset-top, 0px) + 10px) var(--gr) 22px var(--gl);background:linear-gradient(180deg,rgba(5,8,15,.92),rgba(5,8,15,0))}
+.hud .marca{font-family:var(--f-display);font-weight:800;letter-spacing:.18em;color:var(--gold);font-size:18px}
+.hud .fase{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);letter-spacing:.06em;flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud .indice{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hud .indice b{color:var(--gold2);font-weight:500}
+.hud .conm[aria-pressed="true"]{color:var(--gold2);border-color:var(--gold)}
+.hud .conm[aria-pressed="false"]{text-decoration:line-through;opacity:.7}
+@media (max-width:520px){.hud .fase{display:none}.hud{gap:8px}.hud .marca{font-size:15px;letter-spacing:.12em}}
+.hud .salir{background:transparent;border:1px solid var(--line);border-radius:4px;min-height:34px;padding:4px 10px;font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.barra{position:absolute;left:0;right:0;top:0;height:3px;z-index:4;background:rgba(42,56,88,.6)}
+.barra i{display:block;height:100%;background:linear-gradient(90deg,#1F3F94,var(--holo));width:0;transition:width .4s}
+
+.tag{position:absolute;z-index:2;transform:translate(-50%,-100%);pointer-events:none;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;
+  background:rgba(5,8,15,.82);border:1px solid var(--gold);color:var(--gold2);padding:4px 9px;border-radius:3px;white-space:nowrap;transition:opacity .2s}
+.tag.ia{border-color:var(--holo);color:#CFE2FF}
+
+.capa{position:absolute;z-index:3;left:var(--gl);right:var(--gr);margin-inline:auto;max-width:800px;bottom:calc(env(safe-area-inset-bottom, 0px) + 14px)}
+.dlg{background:var(--panel);border:1px solid var(--line);border-top:2px solid var(--gold);border-radius:6px;padding:16px 18px;display:grid;gap:10px;
+  box-shadow:0 18px 40px rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:sube .3s ease both}
+.dlg.ia{border-top-color:var(--holo)}
+@keyframes sube{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.hablante{display:flex;align-items:center;gap:12px}
+.retrato{width:52px;height:52px;border-radius:50%;flex:none;object-fit:cover;border:2px solid var(--gold);background:var(--panel2);display:grid;place-items:center;font-family:var(--f-display);font-size:16px;color:var(--gold2)}
+.retrato.ia{border-color:var(--holo);background:radial-gradient(circle at 50% 40%,rgba(76,155,255,.35),var(--panel2) 70%)}
+.retrato.ia svg{width:28px;height:28px}
+.nombre{font-weight:700;font-size:15px}
+.rol{font-size:13px;color:var(--muted)}
+.texto{font-size:18px;line-height:1.5;min-height:3em;max-width:66ch}
+.dlg.ia .texto{font-family:var(--f-mono);font-size:15.5px;color:#CFE2FF}
+.pie{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pie .ayuda{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.cont{min-height:44px}
+.cont .flecha{display:inline-block;animation:late 1s ease-in-out infinite}
+@keyframes late{50%{transform:translateX(4px)}}
+
+.hoja{background:var(--panel);border:1px solid var(--line);border-top:2px solid var(--gold);border-radius:6px;padding:18px;display:grid;gap:14px;
+  max-height:min(64vh, calc(100vh - 130px));overflow-y:auto;overscroll-behavior:contain;box-shadow:0 18px 40px rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:sube .3s ease both}
+.pregunta{font-family:var(--f-display);font-size:19px;line-height:1.35}
+.dialogo-ia{font-family:var(--f-mono);font-size:15px;color:#CFE2FF;border:1px solid rgba(76,155,255,.45);background:var(--holo-soft);padding:12px 14px;border-radius:4px}
+.ops{display:grid;gap:9px;list-style:none;margin:0;padding:0}
+.op{width:100%;text-align:left;display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:start;padding:12px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;transition:border-color .15s,transform .15s}
+.op:hover:not(:disabled){border-color:var(--gold);transform:translateX(2px)}
+.op .l{font-family:var(--f-mono);font-size:13px;color:var(--gold2);border:1px solid var(--line);border-radius:50%;width:26px;height:26px;display:grid;place-items:center}
+.op:disabled{cursor:default;transform:none}
+.op.full{border-color:var(--ok);background:rgba(76,195,138,.12)}
+.op.part{border-color:var(--warn);background:rgba(229,176,76,.12)}
+.op.cero.sel{border-color:var(--bad);background:rgba(240,96,106,.12)}
+.op.apaga{opacity:.5}
+.fb{border-left:3px solid var(--line);padding:4px 0 4px 14px;display:grid;gap:6px}
+.fb.full{border-color:var(--ok)}.fb.part{border-color:var(--warn)}.fb.cero{border-color:var(--bad)}
+.fb .v{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.fb.full .v{color:var(--ok)}.fb.part .v{color:var(--warn)}.fb.cero .v{color:var(--bad)}
+.fb .pts{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.acciones{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
+.doc{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:16px;display:grid;gap:10px}
+.doc .cab{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:9px}
+.doc .cab h3{font-size:17px;color:var(--gold2)}
+.doc .cab span{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.doc ol,.doc ul{margin:0;padding-left:20px;display:grid;gap:5px}
+.k{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.tabla{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:500px}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:400}
+td.m{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.items{display:grid;gap:10px}
+.item{display:grid;gap:8px;padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:4px}
+.item .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.item .top b{font-weight:600}
+.item .top span{font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.seg button{padding:8px 6px;font-size:13.5px;line-height:1.25;border:1px solid var(--line);background:transparent;border-radius:4px;min-height:44px}
+.seg button[aria-pressed="true"]{border-color:var(--gold);background:rgba(216,180,108,.15);color:var(--gold2)}
+.seg button.ok{border-color:var(--ok);background:rgba(76,195,138,.14)}
+.seg button.mal{border-color:var(--bad);background:rgba(240,96,106,.14)}
+.item .nota{font-size:14px;color:var(--muted)}
+
+.fasecard{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:24px var(--gr) 24px var(--gl);background:radial-gradient(ellipse at center,rgba(5,8,15,.35),rgba(5,8,15,.85) 75%);text-align:center}
+.fasecard .in{display:grid;gap:12px;justify-items:center;max-width:620px;animation:sube .5s ease both}
+.fasecard .n{font-family:var(--f-mono);color:var(--holo);letter-spacing:.24em;font-size:13px}
+.fasecard h2{font-size:clamp(34px,8vw,58px);color:var(--gold2);text-shadow:0 0 30px rgba(216,180,108,.35)}
+.fasecard p{max-width:52ch;font-size:17px}
+
+.sello{justify-self:start;font-family:var(--f-display);font-weight:800;font-size:22px;letter-spacing:.12em;padding:9px 16px;border:3px double currentColor;transform:rotate(-3deg);animation:sello .5s cubic-bezier(.2,.9,.3,1.25) both}
+@keyframes sello{from{transform:rotate(-10deg) scale(1.6);opacity:0}to{transform:rotate(-3deg) scale(1);opacity:1}}
+.sello.ok{color:var(--ok)}.sello.warn{color:var(--warn)}.sello.bad{color:var(--bad)}
+.razones{margin:0;padding-left:20px;display:grid;gap:6px}
+.indice-total{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.indice-total .n{font-family:var(--f-display);font-size:62px;line-height:1;color:var(--gold2);font-variant-numeric:tabular-nums}
+.indice-total .d{font-family:var(--f-mono);color:var(--muted)}
+.rango{font-family:var(--f-display);font-size:21px;color:var(--gold)}
+.cats{display:grid;gap:10px}
+.cat{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;align-items:center}
+.cat .s{font-family:var(--f-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cat .b{grid-column:1 / -1;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.cat .b i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.cargando{position:absolute;inset:0;display:grid;place-items:center;z-index:5;background:#05080F;font-family:var(--f-mono);color:var(--muted);letter-spacing:.14em}
+
+@media (max-width:640px){.bloques{grid-template-columns:1fr}.afiche{max-width:360px;margin:0 auto}.texto{font-size:16.5px}.dlg{padding:14px}.hoja{padding:14px}.pie .ayuda{display:none}}
+@media (max-width:400px){.seg{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<!-- PORTADA -->
+<section id="portada">
+  <img class="logo" src="img/logo.jpg" alt="JUDIX. Justicia, lógica y súper inteligencia">
+  <p class="eslogan">Dos versiones. Una verdad por descubrir.<br>Una decisión que lo cambia todo.</p>
+  <div class="bloques">
+    <img class="afiche" src="img/afiche.jpg" alt="Afiche de JUDIX: el Juez Woc en su estrado, entre dos abogados que argumentan">
+    <div style="display:grid;gap:18px;min-width:0">
+      <div style="display:grid;gap:8px">
+        <p class="eyebrow">Simulación judicial en 3D · Derecho civil costarricense</p>
+        <h2 style="font-size:26px">Usted es el Juez Woc</h2>
+        <p style="color:var(--muted)">Entre a la sala, observe a las partes y escuche, en voz alta, a la técnica judicial, a los abogados y a los testigos. Luego decida. Su asistente de inteligencia artificial lo acompaña, pero no siempre tiene razón. Resuelva conforme al derecho y a la prueba, no conforme a quién argumenta mejor.</p>
+      </div>
+      <div class="caso activo">
+        <span class="num">CASO 001 · NIVEL INICIAL</span>
+        <h3>La casa en disputa</h3>
+        <p>Dos hermanos copropietarios. Uno reclama ₡8 millones por obras en la vivienda común. El otro asegura que nunca las autorizó.</p>
+        <div><button class="btn" id="btnIniciar" type="button">Entrar a la sala</button></div>
+      </div>
+      <div class="caso bloq"><span class="num">CASO 002 · PRÓXIMAMENTE</span><h3>La servidumbre del camino viejo</h3></div>
+      <div class="caso bloq"><span class="num">CASO 003 · PRÓXIMAMENTE</span><h3>El inquilino que no se va</h3></div>
+      <p style="font-size:15px;color:var(--muted)"><b style="color:var(--ink)">Índice de excelencia judicial</b> (100 puntos): valoración probatoria 30 · fundamentación jurídica 30 · debido proceso 20 · imparcialidad 10 · uso crítico de la IA 10. <span id="record"></span></p>
+    </div>
+  </div>
+  <p class="lema">«EN JUDIX, LA IA TE AYUDA A PENSAR. <b>PERO LA JUSTICIA DEPENDE DE VOS</b>».</p>
+  <p style="font-size:13px;color:var(--muted);text-align:center">Caso ficticio con fines docentes y de entretenimiento. Personas, expediente y montos son inventados.</p>
+</section>
+
+<!-- JUEGO -->
+<section id="juego" hidden>
+  <div id="stage" aria-label="Sala de audiencias en 3D"></div>
+  <div class="barra"><i id="hudBarra"></i></div>
+  <div class="hud">
+    <span class="marca">JUDIX</span>
+    <span class="fase" id="hudFase">CASO 001</span>
+    <span class="indice">Índice <b id="hudIndice">0</b>/100</span>
+    <button type="button" class="salir conm" id="btnVoz" aria-pressed="true" title="Activar o silenciar las voces">VOZ</button><button type="button" class="salir conm" id="btnSon" aria-pressed="true" title="Activar o silenciar música y efectos">SONIDO</button><button type="button" class="salir" id="btnSalir" aria-label="Salir a la portada">Salir</button>
+  </div>
+  <div id="tag" class="tag" hidden></div>
+  <div id="capaDlg" class="capa" hidden></div>
+  <div id="capaHoja" class="capa" hidden></div>
+  <div id="faseCard" class="fasecard" hidden></div>
+  <div id="cargando" class="cargando">PREPARANDO LA SALA…</div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ======================= CONTENIDO DEL CASO ======================= */
+const PI = Math.PI;
+const IA_SVG = '<svg viewBox="0 0 32 32" fill="none" stroke="#9CC6FF" stroke-width="1.6" stroke-linecap="round"><path d="M16 5v20M9 25h14M6 10h20"/><path d="M6 10l-3.5 8h7zM26 10l-3.5 8h7z"/><circle cx="16" cy="5" r="1.6" fill="#9CC6FF"/></svg>';
+const P = {
+  juez:{n:"Juez Woc", r:"Juzgado Civil", img:"img/juez.jpg"},
+  ia:{n:"IA Jurídica", r:"Asistente del despacho", ia:true},
+  laura:{n:"Laura Méndez", r:"Técnica judicial", ini:"LM"},
+  vega:{n:"Lic. Andrés Vega", r:"Abogado de la parte actora", img:"img/cara-actor.jpg"},
+  mora:{n:"Licda. Sofía Mora", r:"Abogada de la parte demandada", img:"img/cara-demandada.jpg"},
+  carlos:{n:"Carlos Rojas Solano", r:"Parte actora", ini:"CR"},
+  javier:{n:"Javier Rojas Solano", r:"Parte demandada", ini:"JR"},
+  testigo:{n:"Eliécer Campos", r:"Testigo · maestro de obras", ini:"EC"}
+};
+const CAT = { val:"Valoración probatoria", fund:"Fundamentación jurídica", dp:"Debido proceso", imp:"Imparcialidad", ia:"Uso crítico de la IA" };
+const MAX = { val:30, fund:30, dp:20, imp:10, ia:10 };
+const FACTURAS = [
+  {id:"F-0412", f:"14/03/2025", d:"Sustitución del techo y de vigas dañadas", m:4200000, ok:"cons", nota:"La perita constató filtraciones activas y vigas con humedad: hay riesgo para la estructura. Es un gasto de conservación."},
+  {id:"F-0457", f:"02/04/2025", d:"Reparación de tubería colapsada de aguas negras", m:1800000, ok:"cons", nota:"Sin esa reparación la casa era insalubre. Conservación pura."},
+  {id:"F-0503", f:"21/04/2025", d:"Recableado eléctrico completo", m:2000000, ok:"cons", nota:"El cableado anterior carecía de protecciones y había riesgo de incendio. Conservación."},
+  {id:"F-0561", f:"30/05/2025", d:"Remodelación de cocina con granito y muebles nuevos", m:3500000, ok:"mej", nota:"La cocina anterior funcionaba. Es una mejora estética que el otro condueño no consintió."},
+  {id:"F-0618", f:"18/07/2025", d:"Instalación de jacuzzi en la terraza", m:2900000, ok:"mej", nota:"Obra de uso recreativo, ajena a la conservación del inmueble y no consentida."},
+  {id:"F-0733", f:"15/01/2026", d:"Pintura exterior de toda la fachada", m:1600000, ok:"noac", nota:"Factura posterior a la demanda (10/11/2025) y la perita no observó pintura reciente: el gasto no está acreditado."}
+];
+const CLASES = { cons:"Conservación exigible", mej:"Mejora no consentida", noac:"No acreditado" };
+const colones = n => "₡" + n.toLocaleString("es-CR");
+
+/* Rutas en la sala (x, z) */
+const R = {
+  lauraIda:[[4.6,-4.85],[4.6,-3.4],[2.2,-3.45],[1.25,-4.3]], lauraVuelta:[[2.2,-3.45],[4.6,-3.4],[4.6,-4.85],[3.4,-4.85]],
+  vegaIda:[[-0.75,0.95],[-0.6,-4.25]], vegaVuelta:[[-0.75,0.95],[-1.9,0.95]],
+  testigoIn:[[5.6,-3.0],[2.0,-3.3],[-2.1,-3.8],[-2.7,-5.0],[-3.6,-4.6]],
+  testigoOut:[[-2.7,-5.0],[-2.1,-3.8],[2.0,-3.3],[5.6,-3.0],[7.4,-3.0]]
+};
+
+const GUION = [
+  {t:"fase", n:1, tit:"El conflicto", sub:"Se presenta la demanda. Identifique los hechos, las pretensiones y el problema jurídico."},
+  {t:"dlg", who:"laura", cam:"laura", act:{laura:[["stand"],["pick"],["walk",R.lauraIda],["face",PI],["give"],["walk",R.lauraVuelta],["sit",-0.4]]},
+    txt:"Buenos días, Juez Woc. Le traigo el expediente nuevo: un proceso ordinario entre dos hermanos. En el despacho ya le dicen «la casa en disputa»."},
+  {t:"dlg", who:"juez", cam:"juez", txt:"Dos hermanos, una casa y ocho millones de colones. Veamos primero qué pide exactamente la parte actora."},
+  {t:"doc", cam:"mesa", html:`
+    <div class="doc">
+      <div class="cab"><h3>Demanda ordinaria</h3><span>Exp. 26-001107-0000-CI · presentada el 10/11/2025</span></div>
+      <p><span class="k">Actor</span> Carlos Rojas Solano · <span class="k">Demandado</span> Javier Rojas Solano</p>
+      <div><span class="k">Hechos</span><ol>
+        <li>Ambos hermanos son copropietarios, por partes iguales, de una casa en San Rafael Arriba de Desamparados.</li>
+        <li>Entre marzo y agosto de 2025, el actor pagó obras en la vivienda por un total de ₡16.000.000.</li>
+        <li>Requirió al demandado su contribución y este se negó a pagar.</li></ol></div>
+      <div><span class="k">Pretensión</span><p>Que se condene al demandado a pagar ₡8.000.000, la mitad de lo invertido, más intereses legales y costas.</p></div>
+      <div><span class="k">Prueba ofrecida</span><p>Seis facturas, dictamen pericial de ingeniería y el testimonio del maestro de obras.</p></div>
+    </div>`},
+  {t:"dec", cat:"fund", q:"¿Cuál es la pretensión principal de la demanda?", ops:[
+    {t:"Que se condene al demandado a pagar ₡8.000.000, la mitad de lo invertido en obras sobre la casa común.", p:5, fb:"Exacto. Identificar con precisión lo pedido delimita lo que usted puede conceder: no más, ni algo distinto."},
+    {t:"Que se ordene la división de la casa entre los hermanos.", p:0, fb:"Nadie pidió la división. Resolver sobre ello sería fallar fuera de lo pedido."},
+    {t:"Que se declare al actor dueño exclusivo de la vivienda.", p:0, fb:"La titularidad no está en discusión: ambos admiten ser copropietarios por partes iguales."}]},
+  {t:"dec", cat:"fund", q:"¿Cuál es el problema jurídico que deberá resolver?", ops:[
+    {t:"Determinar qué gastos son de conservación de la cosa común, exigibles a ambos condueños según su cuota, y cuáles no lo son.", p:10, fb:"Ese es el núcleo. El deber de contribuir a la conservación nace de la ley; la discusión real es qué obras caben en esa categoría y cuáles están probadas."},
+    {t:"Determinar si el demandado autorizó los gastos: sin autorización, nada se debe.", p:3, fb:"Adopta de entrada la tesis de una de las partes. La autorización importa para las mejoras, pero el deber de contribuir a la conservación no depende de ella."},
+    {t:"Determinar cuál de los dos hermanos tiene más recursos económicos.", p:0, fb:"La capacidad económica de las partes no define quién debe pagar los gastos de la cosa común."}]},
+
+  {t:"fase", n:2, tit:"La contradicción", sub:"La parte demandada contesta, niega hechos, formula excepciones y aporta su propia versión."},
+  {t:"dlg", who:"mora", cam:"mora", act:{mora:[["stand"]]}, txt:"Señor juez: mi representado nunca autorizó esos gastos. Muchas obras fueron de lujo, no necesarias. Así consta en nuestra contestación."},
+  {t:"doc", cam:"mesa", act:{mora:[["sit",PI]]}, html:`
+    <div class="doc">
+      <div class="cab"><h3>Contestación negativa</h3><span>Javier Rojas Solano</span></div>
+      <p>«Nunca autoricé esos gastos. Muchas obras fueron de lujo, no necesarias. Mi hermano decidió remodelar a su gusto y ahora pretende que yo pague la mitad.»</p>
+      <div><span class="k">Excepciones</span><ul>
+        <li>Como <b>excepción procesal previa</b>: falta de legitimación activa, porque, según dice, el dinero era de la esposa del actor.</li>
+        <li>Falta de derecho.</li></ul></div>
+      <div><span class="k">Prueba ofrecida</span><p>Testimonio de la vecina Rosa Villalobos, «para que declare sobre el carácter conflictivo del actor».</p></div>
+    </div>`},
+  {t:"dec", cat:"dp", q:"¿Qué dispone sobre la «excepción procesal» de falta de legitimación activa?", ops:[
+    {t:"No es excepción procesal admisible; como defensa de fondo, se resolverá en sentencia.", p:7, fb:"Correcto. El artículo 37.3 del CPC enumera de forma taxativa las excepciones procesales, y la legitimación no está entre ellas."},
+    {t:"Tramitarla como incidente y resolverla antes de continuar.", p:0, fb:"Otorga a una defensa de fondo un trámite que el Código reserva a las excepciones procesales taxativas, y retrasa el proceso."},
+    {t:"Acogerla de una vez, porque el dinero no salió del patrimonio del actor.", p:0, fb:"Se anticipa a la prueba: nada se ha demostrado sobre el origen del dinero, y lo resolvería sin contradictorio."}]},
+  {t:"dec", cat:"dp", q:"¿Qué prueba admite?", ops:[
+    {t:"Admitir las facturas, el dictamen pericial y al maestro de obras; rechazar a la vecina por impertinente.", p:7, fb:"Correcto. El «carácter conflictivo» del actor no guarda relación con los hechos controvertidos (art. 41.3 CPC). El tribunal indica en una misma resolución la prueba admitida y la rechazada."},
+    {t:"Admitir toda la prueba ofrecida por ambas partes, para no causar indefensión.", p:2, fb:"Admitir prueba impertinente no protege la defensa: alarga el proceso y desvía el debate. El artículo 41.3 ordena rechazarla."},
+    {t:"Rechazar el dictamen pericial, porque fue pagado por la parte actora.", p:0, fb:"Las partes pueden aportar dictámenes con la demanda (art. 44.1 CPC). Su origen se pondera al valorarlo; no impide admitirlo."}]},
+  {t:"dlg", who:"vega", cam:"vega", act:{vega:[["stand"],["walk",R.vegaIda],["face",PI]]}, txt:"Juez Woc, buenas tardes. ¿Podríamos conversar un momento a solas? Es sobre el caso de los hermanos Rojas. Serán solo cinco minutos."},
+  {t:"dec", cat:"imp", q:"¿Cómo responde al abogado?", after:{vega:[["walk",R.vegaVuelta],["sit",PI]]}, ops:[
+    {t:"Declinar con cortesía: lo relativo al caso se trata en audiencia o por escrito, con la otra parte presente.", p:5, fb:"Correcto. La igualdad procesal exige que ambas partes conozcan lo que se le plantea al tribunal (art. 2.1 CPC)."},
+    {t:"Escucharlo brevemente y luego contarle lo conversado a la otra parte.", p:1, fb:"La comunicación posterior no repara la apariencia de parcialidad que crea la reunión a solas."},
+    {t:"Recibirlo: escuchar no compromete la decisión.", p:0, fb:"Para la parte contraria sí la compromete. La imparcialidad también debe ser visible."}]},
+
+  {t:"fase", n:3, tit:"La investigación judicial", sub:"Analice las pruebas, detecte contradicciones y use a su asistente de IA, que también puede equivocarse."},
+  {t:"doc", cam:"mesa", html:`
+    <div class="doc">
+      <div class="cab"><h3>Facturas aportadas</h3><span>Total: ₡16.000.000</span></div>
+      <div class="tabla"><table><thead><tr><th>N.°</th><th>Fecha</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>
+      ${FACTURAS.map(f => `<tr><td class="m">${f.id}</td><td class="m">${f.f}</td><td>${f.d}</td><td class="m">${colones(f.m)}</td></tr>`).join("")}
+      </tbody></table></div>
+    </div>
+    <div class="doc">
+      <div class="cab"><h3>Dictamen pericial</h3><span>Ing. Marcela Quirós · inspección del 03/12/2025</span></div>
+      <ul>
+        <li><b>Techo:</b> había filtraciones activas en tres dormitorios y vigas con humedad. La sustitución era necesaria para evitar daño estructural.</li>
+        <li><b>Tubería:</b> la tubería de aguas negras estaba colapsada y causaba insalubridad. Reparación necesaria.</li>
+        <li><b>Sistema eléctrico:</b> el cableado carecía de protecciones y había riesgo de incendio. Sustitución necesaria.</li>
+        <li><b>Cocina:</b> la remodelación es reciente, con granito y muebles nuevos. La cocina anterior era funcional; se trata de una mejora estética.</li>
+        <li><b>Jacuzzi:</b> está instalado en la terraza y es de uso recreativo.</li>
+        <li><b>Fachada:</b> la pintura exterior muestra desgaste y desprendimientos. No se observa pintura reciente.</li>
+      </ul>
+      <p><b>Conclusión:</b> existen todas las obras facturadas, salvo la pintura exterior.</p>
+    </div>`},
+  {t:"ia", cat:"ia", cam:"ia", msg:"Análisis completado. La perita confirmó la existencia de las obras facturadas. Recomiendo declarar con lugar la demanda en su totalidad: ₡8.000.000.", ops:[
+    {t:"Aceptar la recomendación.", p:0, fb:"Esta vez la IA se equivocó. Que una obra exista no la convierte en gasto de conservación. El dictamen distingue entre reparaciones necesarias y mejoras."},
+    {t:"Pedirle a la IA que fundamente su recomendación y contrastarla con el dictamen.", p:5, fb:"Bien hecho. La IA rectifica: «Corrijo. El dictamen califica como necesarias solo tres obras; la cocina y el jacuzzi son mejoras, y la pintura no existe.» Usted descubrió el error verificando, no por intuición."},
+    {t:"Descartarla sin revisarla: las máquinas no deben opinar sobre justicia.", p:2, fb:"La recomendación era errónea, pero usted no lo comprobó. Rechazar sin verificar es tan acrítico como obedecer sin verificar."}]},
+  {t:"ia", cat:"ia", cam:"ia", msg:"Alerta: la factura F-0733 (pintura, ₡1.600.000) tiene fecha 15/01/2026, posterior a la presentación de la demanda (10/11/2025). Además, la perita no observó pintura reciente. ¿Desea revisarla?", ops:[
+    {t:"Revisarla y contrastar las fechas con el dictamen.", p:5, fb:"Esta vez la IA acertó. La factura es posterior a la demanda y la perita no encontró pintura reciente: hay una contradicción seria."},
+    {t:"Ignorar la alerta: ya se equivocó una vez.", p:0, fb:"La desconfianza indiscriminada es tan errónea como la obediencia ciega. La habilidad está en verificar cada sugerencia por sus propios méritos."}]},
+  {t:"clas", cam:"mesa"},
+
+  {t:"dlg", who:"juez", cam:"general", mark:"testigoIn", act:{testigo:[["show"],["walk",R.testigoIn],["sit",0.9]]},
+    txt:"Se abre la audiencia de prueba en el proceso de Carlos Rojas Solano contra Javier Rojas Solano. Ingrese el testigo ofrecido por la parte actora y tome asiento en el estrado. Recuerde que declara bajo juramento."},
+  {t:"dlg", who:"testigo", cam:"testigo", txt:"Yo hice el techo, la cañería y la electricidad. El techo goteaba en tres cuartos, y cuando quitamos el cielorraso las vigas estaban podridas."},
+  {t:"dlg", who:"vega", cam:"vega", act:{vega:[["stand"]]}, txt:"Don Eliécer, ¿verdad que el techo estaba a punto de caerse y que era urgentísimo repararlo?"},
+  {t:"dlg", who:"mora", cam:"mora", act:{mora:[["stand"],["point",2.4]]}, txt:"¡Objeción, señor juez! La pregunta es sugestiva: le pone la respuesta en la boca al testigo."},
+  {t:"dec", cat:"dp", q:"¿Cómo resuelve la objeción?", after:{mora:[["sit",PI]], vega:[["sit",PI]]}, ops:[
+    {t:"Acogerla: la pregunta es sugestiva. Que el abogado la reformule de forma abierta.", p:6, fb:"Correcto. El artículo 41.4, inciso 5, del CPC ordena rechazar las preguntas sugestivas o insinuadoras de la respuesta."},
+    {t:"Rechazarla: el testigo ya dijo algo similar, así que no hay perjuicio.", p:0, fb:"Que el testigo haya dicho algo parecido no convierte en admisible una pregunta que le sugiere la respuesta."},
+    {t:"Dejar que responda y valorar luego su declaración con cautela.", p:2, fb:"La cautela posterior no sustituye el control oportuno del interrogatorio, que es deber del tribunal."}]},
+  {t:"dlg", who:"testigo", cam:"testigo", txt:"Ah, y en enero pinté toda la fachada. Eso también lo cobré."},
+  {t:"dec", cat:"val", q:"¿Cómo valora el testimonio en cuanto a la pintura?", ops:[
+    {t:"No le da credibilidad en ese punto: lo contradicen el dictamen y la fecha de la factura. El resto de su relato coincide con la perita.", p:6, fb:"Exacto. La prueba se aprecia en conjunto, con lógica y experiencia (art. 41.5 CPC). Un testimonio puede ser creíble en una parte y no en otra."},
+    {t:"Lo tiene por cierto: declaró bajo juramento.", p:0, fb:"El juramento no vuelve verdadero lo que la prueba técnica y documental desmiente."},
+    {t:"Descarta toda su declaración, porque mintió sobre la pintura.", p:2, fb:"Es excesivo. Lo que dijo sobre el techo, la cañería y la electricidad coincide con la perita y conserva valor."}]},
+  {t:"dlg", who:"carlos", cam:"carlos", act:{carlos:[["stand"]]}, txt:"Señor juez, perdí el trabajo este año. Ese dinero era todo lo que tenía. Mi hermano vive tranquilo mientras yo pago todo."},
+  {t:"dec", cat:"imp", q:"¿Qué peso le da a esa manifestación?", after:{carlos:[["sit",PI]]}, ops:[
+    {t:"Ninguno en la decisión: el monto depende de lo que la ley impone y de lo probado, no de la situación personal de las partes.", p:5, fb:"Correcto. La empatía es compatible con la función judicial; inclinar la decisión por ella no lo es."},
+    {t:"Reconocer algo más de lo probado, por equidad.", p:0, fb:"Conceder lo no probado por compasión sería parcialidad, por bien intencionada que sea."}]},
+  {t:"dlg", who:"javier", cam:"javier", act:{javier:[["stand"]]}, txt:"Yo no niego que el techo estaba mal; se mojaba todo. Pero ¿un jacuzzi? Yo nunca pedí eso. Ni la cocina nueva."},
+
+  {t:"fase", n:4, tit:"La sentencia", sub:"Decida si acoge, rechaza o acoge parcialmente. Su sentencia irá a un tribunal de apelación virtual.", mark:"testigoOut",
+    act:{javier:[["sit",PI]], testigo:[["stand"],["walk",R.testigoOut],["hide"]]}},
+  {t:"dlg", who:"ia", cam:"ia", txt:"Juez Woc, ya cuenta con todos los elementos. La decisión y su fundamento le corresponden a usted."},
+  {t:"dec", cat:"fund", id:"disp", q:"¿Cómo resuelve la demanda?", ops:[
+    {t:"Con lugar en su totalidad.", p:0, fb:"Reconocería obras no exigibles y un gasto no acreditado."},
+    {t:"Sin lugar en su totalidad.", p:0, fb:"Desconocería gastos de conservación plenamente acreditados, incluso admitidos por el propio demandado en cuanto al techo."},
+    {t:"Parcialmente con lugar.", p:5, fb:"Correcto. Hay gastos exigibles y otros que no lo son."}]},
+  {t:"dec", cat:"fund", id:"monto", q:"¿Qué monto condena a pagar al demandado?", ops:[
+    {t:"₡8.000.000", p:0, fb:"Es la mitad de todo lo facturado, incluidas las mejoras y la pintura no acreditada."},
+    {t:"₡5.750.000", p:0, fb:"Incluye la cocina, una mejora que el demandado no consintió."},
+    {t:"₡4.800.000", p:0, fb:"Incluye la pintura, cuya existencia quedó desvirtuada."},
+    {t:"₡4.000.000", p:5, fb:"Exacto. Techo, tubería y electricidad suman ₡8.000.000; la cuota del demandado es la mitad."}]},
+  {t:"dec", cat:"fund", id:"fund", q:"¿Con qué fundamento motiva la sentencia?", ops:[
+    {t:"Cada condueño debe contribuir a los gastos de conservación de la cosa común en proporción a su cuota (art. 271 del Código Civil). Se reconocen el techo, la tubería y la electricidad; la cocina y el jacuzzi son mejoras no consentidas, y la pintura no se acreditó.", p:5, fb:"Motivación completa: norma aplicable, calificación de cada gasto y valoración de la prueba."},
+    {t:"El actor probó haber pagado ₡16.000.000; quien paga merece ser reembolsado.", p:0, fb:"Haber pagado no basta. Debe demostrarse que el gasto era de aquellos que la ley impone a ambos condueños."},
+    {t:"Ningún condueño puede gastar sin autorización del otro; como no la hubo, solo se reconoce lo que el demandado admitió en audiencia.", p:1, fb:"Confunde conservación con mejora. El deber de contribuir a la conservación nace de la ley, no de la autorización."}]},
+  {t:"apelacion", cam:"juez", act:{juez:[["stand"],["gavel"]]}},
+  {t:"final", cam:"orbit", act:{juez:[["sit",0]]}}
+];
+
+/* ======================= MOTOR 3D ======================= */
+const $ = id => document.getElementById(id);
+let GL = false, renderer, scene, camera, clock, t3 = 0;
+const H = {}; const V = (x,y,z) => new THREE.Vector3(x,y,z);
+const mats = {};
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let camShot = "general", camPos, camLook, viewOff = 0, viewOffT = 0, parX = 0, parY = 0;
+let folder, gavel, flag, holo, speaker = null, iaActiva = false, construida = false;
+
+function mat(c, rough=.75, metal=0, extra={}){ const k = c+"|"+rough+"|"+metal+JSON.stringify(extra); if(!mats[k]){ const e = Object.assign({}, extra); if (e.emissive != null) e.emissive = new THREE.Color(e.emissive).convertSRGBToLinear(); mats[k] = new THREE.MeshStandardMaterial(Object.assign({color:new THREE.Color(c).convertSRGBToLinear(), roughness:rough, metalness:metal}, e)); } return mats[k]; }
+function sombras(m){ m.castShadow = true; m.receiveShadow = true; return m; }
+function box(w,h,d,m,x,y,z,p=scene){ const o = sombras(new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m)); o.position.set(x,y,z); p.add(o); return o; }
+function cyl(rt,rb,h,m,x,y,z,p=scene,s=14){ const o = sombras(new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,s), m)); o.position.set(x,y,z); p.add(o); return o; }
+function sph(r,m,x,y,z,p=scene,ws=16,hs=12){ const o = sombras(new THREE.Mesh(new THREE.SphereGeometry(r,ws,hs), m)); o.position.set(x,y,z); p.add(o); return o; }
+function tex(w,h,draw,rep){ const c = document.createElement("canvas"); c.width=w; c.height=h; draw(c.getContext("2d"),w,h); const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; if(rep){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0],rep[1]); } return t; }
+function rnd(a,b){ return a + Math.random()*(b-a); }
+
+function texturas(){
+  const T = {};
+  T.piso = tex(512,512,(g,w,h)=>{ g.fillStyle="#3b2416"; g.fillRect(0,0,w,h); const fil=8, ah=h/fil;
+    for(let r=0;r<fil;r++){ let x = -rnd(0,200); while(x<w){ const L=rnd(160,300); g.fillStyle=`hsl(${rnd(20,28)},${rnd(38,48)}%,${rnd(15,23)}%)`; g.fillRect(x,r*ah,L,ah-2);
+      g.strokeStyle="rgba(0,0,0,.35)"; g.lineWidth=2; g.strokeRect(x,r*ah,L,ah-2);
+      for(let k=0;k<6;k++){ g.strokeStyle=`rgba(255,220,180,${rnd(.02,.06)})`; g.beginPath(); const yy=r*ah+rnd(4,ah-6); g.moveTo(x,yy); g.bezierCurveTo(x+L/3,yy+rnd(-3,3),x+2*L/3,yy+rnd(-3,3),x+L,yy); g.stroke(); }
+      x+=L; } } },[5,5]);
+  T.marmol = tex(512,512,(g,w,h)=>{ g.fillStyle="#141a24"; g.fillRect(0,0,w,h);
+    for(let i=0;i<26;i++){ g.strokeStyle=`rgba(${rnd(150,220)},${rnd(140,190)},${rnd(110,150)},${rnd(.03,.09)})`; g.lineWidth=rnd(.5,1.6); g.beginPath(); let x=rnd(0,w), y=rnd(0,h); g.moveTo(x,y); for(let k=0;k<5;k++){ x+=rnd(-120,120); y+=rnd(-120,120); g.lineTo(x,y);} g.stroke(); } },[3,1.5]);
+  T.panel = tex(512,512,(g,w,h)=>{ g.fillStyle="#24160d"; g.fillRect(0,0,w,h); g.strokeStyle="rgba(216,180,108,.22)"; g.lineWidth=3;
+    for(let i=0;i<2;i++) for(let j=0;j<2;j++){ g.strokeRect(i*w/2+22,j*h/2+22,w/2-44,h/2-44); }
+    for(let k=0;k<40;k++){ g.strokeStyle=`rgba(0,0,0,${rnd(.05,.15)})`; g.beginPath(); const x=rnd(0,w); g.moveTo(x,0); g.lineTo(x+rnd(-8,8),h); g.stroke(); } },[4,1]);
+  T.bandera = tex(300,180,(g,w,h)=>{ const c=["#002B7F","#FFFFFF","#CE1126","#CE1126","#FFFFFF","#002B7F"]; c.forEach((col,i)=>{ g.fillStyle=col; g.fillRect(0,i*h/6,w,h/6+1); });
+    g.fillStyle="#FFFFFF"; g.beginPath(); g.ellipse(w*0.3,h/2,16,19,0,0,PI*2); g.fill(); g.fillStyle="#2a6a3a"; g.beginPath(); g.ellipse(w*0.3,h/2+2,10,12,0,0,PI*2); g.fill(); });
+  T.placa = tex(512,116,(g,w,h)=>{ const gr=g.createLinearGradient(0,0,0,h); gr.addColorStop(0,"#16130e"); gr.addColorStop(1,"#0a0907"); g.fillStyle=gr; g.fillRect(0,0,w,h);
+    g.strokeStyle="#c9a35a"; g.lineWidth=4; g.strokeRect(6,6,w-12,h-12); g.fillStyle="#e9cd8e"; g.textAlign="center"; g.font="700 46px Cinzel, Georgia, serif"; g.fillText("JUEZ WOC",w/2,64);
+    g.fillStyle="#c9a35a"; g.fillRect(w/2-90,76,180,2); g.font="500 20px Cinzel, Georgia, serif"; g.fillText("JUDIX",w/2,102); });
+  T.holo = tex(512,320,(g,w,h)=>{ g.clearRect(0,0,w,h); g.strokeStyle="rgba(120,180,255,.95)"; g.lineWidth=3; g.strokeRect(8,8,w-16,h-16);
+    g.fillStyle="rgba(76,155,255,.10)"; g.fillRect(8,8,w-16,h-16); g.fillStyle="#cfe2ff"; g.font="600 30px 'JetBrains Mono', monospace"; g.fillText("IA JURÍDICA",30,52);
+    g.font="400 19px 'JetBrains Mono', monospace"; ["▸ EXPEDIENTE 26-001107","▸ ANÁLISIS DE PRUEBA","▸ JURISPRUDENCIA","▸ ARGUMENTOS","▸ PROYECTO DE RESOLUCIÓN"].forEach((s,i)=>g.fillText(s,30,98+i*38));
+    g.strokeStyle="rgba(160,205,255,.9)"; g.lineWidth=2.5; const cx=w-100, cy=150; g.beginPath(); g.arc(cx,cy,62,0,PI*2); g.stroke();
+    g.beginPath(); g.moveTo(cx,cy-40); g.lineTo(cx,cy+38); g.moveTo(cx-38,cy-22); g.lineTo(cx+38,cy-22); g.moveTo(cx-24,cy+38); g.lineTo(cx+24,cy+38); g.stroke();
+    g.beginPath(); g.moveTo(cx-38,cy-22); g.lineTo(cx-50,cy+4); g.lineTo(cx-26,cy+4); g.closePath(); g.moveTo(cx+38,cy-22); g.lineTo(cx+26,cy+4); g.lineTo(cx+50,cy+4); g.closePath(); g.stroke(); });
+  T.pantalla = tex(256,160,(g,w,h)=>{ g.fillStyle="#0b2550"; g.fillRect(0,0,w,h); g.fillStyle="#7fb2ff"; for(let i=0;i<7;i++) g.fillRect(16,18+i*19,rnd(80,210),6); });
+  return T;
+}
+
+function humano(o){
+  const root = new THREE.Group(); scene.add(root);
+  const mSkin = mat(o.skin,.5,0,{emissive:o.skin, emissiveIntensity:.07}), mSuit = mat(o.suit,.66), mSuitD = mat(o.suit,.55,0,{emissive:0x000000}),
+    mTorso = mat(o.suit,.66,0,{side:THREE.DoubleSide}), mPants = mat(o.pants||o.suit,.72), mShoe = mat(o.shoe||0x0b0b0d,.28,.2),
+    mHair = mat(o.hair,.62), mShirt = mat(o.shirt||0xf2f2f0,.6), mLip = mat(o.lip||(o.female?0xa8545e:0x9a6158),.42),
+    mWhite = mat(0xf3efe7,.25), mIris = mat(o.eye||0x3a2414,.25), mPupil = mat(0x050505,.15), mMouth = mat(0x3a1416,.6), mDark = mat(0x111111,.4);
+  const hips = new THREE.Group(); hips.position.y = .975; root.add(hips);
+  cyl(.165,.155,.2,mPants,0,0,0,hips,18).scale.z = .7;
+  const chest = new THREE.Group(); chest.position.y = .06; hips.add(chest);
+  const prof = o.female ? [[0,0],[.15,0],[.155,.07],[.138,.2],[.152,.31],[.163,.4],[.158,.48],[.11,.54],[.055,.57],[0,.57]]
+                        : [[0,0],[.158,0],[.165,.09],[.17,.2],[.188,.32],[.2,.42],[.195,.49],[.13,.55],[.06,.575],[0,.575]];
+  const tor = sombras(new THREE.Mesh(new THREE.LatheGeometry(prof.map(p=>new THREE.Vector2(p[0],p[1])), 26), mTorso)); tor.scale.z = .66; chest.add(tor);
+  // Ropa: saco con solapas, camisa, corbata o camisa casual
+  if (!o.casual){
+    box(.1,.2,.01,mShirt,0,.45,.127,chest);
+    if (o.tie){ box(.038,.25,.012,mat(o.tie,.42),0,.385,.133,chest); box(.048,.035,.016,mat(o.tie,.42),0,.507,.131,chest); }
+    const l1 = box(.055,.27,.013,mSuitD,-.052,.405,.131,chest); l1.rotation.z = .33; const l2 = box(.055,.27,.013,mSuitD,.052,.405,.131,chest); l2.rotation.z = -.33;
+    sph(.009,mDark,0,.235,.131,chest,8,6); sph(.009,mDark,0,.155,.13,chest,8,6);
+    const c1 = box(.045,.03,.012,mShirt,-.028,.545,.105,chest); c1.rotation.z = .5; const c2 = box(.045,.03,.012,mShirt,.028,.545,.105,chest); c2.rotation.z = -.5;
+  } else {
+    const c1 = box(.05,.032,.012,mSuitD,-.03,.548,.104,chest); c1.rotation.z = .55; const c2 = box(.05,.032,.012,mSuitD,.03,.548,.104,chest); c2.rotation.z = -.55;
+    box(.018,.36,.008,mSuitD,0,.34,.128,chest); [.46,.37,.28,.19].forEach(y=>sph(.006,mat(0xe8e2d0,.4),0,y,.133,chest,6,5));
+    if (o.plaid){ for (let i=0;i<5;i++) box(.33,.008,.004,mat(o.plaid,.7),0,.12+i*.09,.125-Math.abs(.25-i*.05)*.0,chest); }
+  }
+  [-1,1].forEach(sd=>sph(.078,mSuit,sd*.2,.49,0,chest,14,10).scale.set(1,.85,.85));
+  cyl(.046,.052,.12,mSkin,0,.585,0,chest);
+  // Cabeza
+  const head = new THREE.Group(); head.position.y = .62; chest.add(head);
+  sph(.104,mSkin,0,.135,-.005,head,30,22).scale.set(.93,1.06,1.02);
+  sph(.086,mSkin,0,.08,.018,head,26,18).scale.set(o.female?.9:.98,.93,1.0);
+  sph(.03,mSkin,0,.046,.07,head,12,10).scale.set(1.2,.8,.8);
+  [-1,1].forEach(sd=>sph(.027,mSkin,sd*.097,.122,-.005,head,10,8).scale.set(.45,1,.75));
+  sph(.02,mSkin,0,.118,.099,head,12,10).scale.set(.75,1.5,.9); sph(.017,mSkin,0,.097,.108,head,12,10);
+  const lids = [];
+  [-1,1].forEach(sd=>{ const ex = sd*.035, ey = .136, ez = .083;
+    sph(.0165,mWhite,ex,ey,ez,head,14,10); sph(.0095,mIris,ex,ey,ez+.0125,head,10,8); sph(.0045,mPupil,ex,ey,ez+.0158,head,8,6);
+    const lid = sph(.0185,mSkin,ex,ey+.007,ez,head,12,10); lid.scale.set(1.06,.42,1.06); lid.castShadow = false; lids.push(lid);
+    const b = box(.034,.007,.01,mHair,sd*.037,.162,.094,head); b.rotation.z = sd*.12; });
+  const lz = o.beard ? .108 : .098;
+  const inner = sph(.02,mMouth,0,.074,lz-.003,head,10,8); inner.scale.set(1.25,.15,.5);
+  sph(.016,mLip,0,.081,lz,head,12,8).scale.set(1.55,.36,.62);
+  const lower = sph(.016,mLip,0,.068,lz-.002,head,12,8); lower.scale.set(1.4,.45,.6);
+  // Cabello
+  const st = o.estilo || (o.female ? "melena" : "corto");
+  if (st !== "gorra"){
+    const cap = sombras(new THREE.Mesh(new THREE.SphereGeometry(.112,28,16,0,PI*2,0,PI*.5), mHair)); cap.position.set(0,.142,-.012); cap.rotation.x = -.32; cap.scale.set(.98,1.1,1.06); head.add(cap);
+    sph(.1,mHair,0,.118,-.04,head,20,14).scale.set(.97,1.02,.86);
+    if (!o.female) [-1,1].forEach(sd=>box(.012,.045,.032,mHair,sd*.094,.125,.018,head));
+  }
+  if (st === "woc"){ sph(.085,mHair,.018,.206,.022,head,20,12).scale.set(1.25,.55,1.15); sph(.05,mHair,.04,.198,.075,head,16,10).scale.set(1.35,.55,.9); sph(.05,mHair,-.04,.2,.06,head,14,10).scale.set(1.1,.5,.9); }
+  if (st === "moño"){ sph(.104,mHair,0,.125,-.045,head,20,14).scale.set(1.0,1.05,.9); sph(.055,mHair,0,.172,-.122,head,16,12); }
+  if (st === "cola"){ sph(.104,mHair,0,.125,-.045,head,20,14).scale.set(1.0,1.05,.9); const p = cyl(.036,.016,.25,mHair,0,.06,-.15,head,10); p.rotation.x = .32; sph(.022,mat(0x1a1a1a,.4),0,.15,-.13,head,8,6); }
+  if (st === "melena"){ sph(.106,mHair,0,.12,-.045,head,20,14).scale.set(1.04,1.08,.92); const m = cyl(.1,.118,.24,mHair,0,.02,-.04,head,20); m.scale.z = .75; }
+  if (st === "canas"){ /* cabello corto entrecano, ya cubierto por el color */ }
+  if (st === "gorra"){ const cm = sombras(new THREE.Mesh(new THREE.SphereGeometry(.116,22,12,0,PI*2,0,PI*.48), mat(o.gorra||0x1f3a5a,.75))); cm.position.y = .15; cm.scale.set(1,1.02,1.05); head.add(cm);
+    const v = box(.15,.012,.1,mat(o.gorra||0x1f3a5a,.75),0,.175,.125,head); v.rotation.x = .12; sph(.1,mHair,0,.1,-.045,head,16,10).scale.set(.97,.8,.85); }
+  if (o.beard){ const bm = sombras(new THREE.Mesh(new THREE.SphereGeometry(.09,22,12,0,PI*2,PI*.46,PI*.54), mat(o.hair,.85,0,{transparent:true, opacity:.82}))); bm.position.set(0,.082,.02); bm.scale.set(1.01,.97,1.06); head.add(bm);
+    box(.045,.009,.014,mat(o.hair,.8),0,.088,lz+.006,head); }
+  if (o.lentes){ const gm = mat(0x16181c,.25,.7);
+    [-1,1].forEach(sd=>{ const g = new THREE.Group(); g.position.set(sd*.036,.137,.103); head.add(g);
+      box(.05,.0045,.004,gm,0,.0145,0,g); box(.05,.0035,.004,gm,0,-.0145,0,g); box(.0035,.032,.004,gm,-.025,0,0,g); box(.0035,.032,.004,gm,.025,0,0,g);
+      const lens = new THREE.Mesh(new THREE.PlaneGeometry(.048,.028), mat(0x9fb6cc,.05,.2,{transparent:true, opacity:.18})); g.add(lens);
+      box(.004,.004,.1,gm,sd*.026,.004,-.05,g); });
+    box(.02,.004,.004,gm,0,.142,.104,head); }
+  function brazo(side){ const sh = new THREE.Group(); sh.position.set(side*.225,.49,0); chest.add(sh); cyl(.056,.047,.29,mSuit,0,-.145,0,sh,14);
+    const el = new THREE.Group(); el.position.y = -.29; sh.add(el); sph(.048,mSuit,0,0,0,el,12,8); cyl(.046,.038,.25,mSuit,0,-.125,0,el,14);
+    if (!o.casual) cyl(.039,.039,.025,mShirt,0,-.255,0,el,12);
+    const hand = sph(.042,mSkin,0,-.305,.008,el,14,10); hand.scale.set(.82,1.15,.55); sph(.015,mSkin,side*-.03,-.285,.022,el,8,6).scale.set(1,1.6,1);
+    return {sh,el,hand}; }
+  function pierna(side){ const hp = new THREE.Group(); hp.position.set(side*.09,-.04,0); hips.add(hp); cyl(.076,.06,.46,mPants,0,-.23,0,hp,14);
+    const kn = new THREE.Group(); kn.position.y = -.46; hp.add(kn); sph(.06,mPants,0,0,0,kn,12,8); cyl(.058,.045,.42,mPants,0,-.21,0,kn,14);
+    box(.088,.06,.2,mShoe,0,-.445,.035,kn); sph(.046,mShoe,0,-.45,.13,kn,12,8).scale.set(1,.6,1.25); return {hp,kn}; }
+  const h = { root, hips, chest, head, mouth:{inner, lower}, lids, aR:brazo(-1), aL:brazo(1), lR:pierna(-1), lL:pierna(1),
+    x:o.x, z:o.z, base:o.base||0, rot:o.rot||0, rotT:o.rot||0, sit:o.seated?1:0, sitT:o.seated?1:0, walk:0, walkT:0, phase:0,
+    queue:[], task:null, pose:null, talking:false, seed:Math.random()*10, speed:1.5, home:{x:o.x, z:o.z, rot:o.rot||0, seated:!!o.seated}, gv:0, yaw:0,
+    open:0, nextBlink:1+Math.random()*3, blinkT:0, lastStep:0 };
+  root.scale.setScalar(o.escala || (o.female ? .95 : 1));
+  root.position.set(h.x, h.base, h.z); root.rotation.y = h.rot;
+  return h;
+}
+
+function silla(x,y,z,rot,col,alta){ const g = new THREE.Group(); g.position.set(x,y,z); g.rotation.y = rot; scene.add(g); const m = mat(col,.55);
+  box(.5,.08,.5,m,0,.43,0,g); box(.5,alta?1.0:.55,.08,m,0,.43+(alta?.5:.28),-.24,g); cyl(.03,.03,.39,mat(0x222222,.4,.6),0,.2,0,g); cyl(.22,.22,.03,mat(0x222222,.4,.6),0,.02,0,g); }
+
+function construirSala(){
+  const T = texturas();
+  const madera = mat(0x4a2c18,.6), maderaOsc = mat(0x2a180d,.55), oro = mat(0xc9a35a,.35,.8,{emissive:0x3a2a0c}), negro = mat(0x15171c,.5);
+  scene.background = new THREE.Color(0x05080f); scene.fog = new THREE.Fog(0x05080f, 14, 30);
+  const piso = new THREE.Mesh(new THREE.PlaneGeometry(18,20), new THREE.MeshStandardMaterial({map:T.piso, roughness:.55})); piso.rotation.x = -PI/2; piso.position.z = 1; piso.receiveShadow = true; scene.add(piso);
+  const fondo = new THREE.Mesh(new THREE.PlaneGeometry(18,7.5), new THREE.MeshStandardMaterial({map:T.marmol, roughness:.35, metalness:.1})); fondo.position.set(0,3.75,-8); fondo.receiveShadow = true; scene.add(fondo);
+  [-9,9].forEach(x=>{ const p = new THREE.Mesh(new THREE.PlaneGeometry(20,7.5), new THREE.MeshStandardMaterial({map:T.panel, roughness:.6})); p.position.set(x,3.75,1); p.rotation.y = x<0?PI/2:-PI/2; p.receiveShadow = true; scene.add(p); });
+  const techo = new THREE.Mesh(new THREE.PlaneGeometry(18,20), mat(0x0b0f18,.9)); techo.rotation.x = PI/2; techo.position.set(0,7.5,1); scene.add(techo);
+  box(18,.05,.05,oro,0,1.2,-7.97); box(18,.05,.05,oro,0,6.4,-7.97);
+  [-2.9,2.9,-6.6,6.6].forEach(x=>{ box(.6,6.6,.6,mat(0x1b2230,.3,.1),x,3.3,-7.7); box(.72,.14,.72,oro,x,6.6,-7.7); box(.72,.14,.72,oro,x,.07,-7.7); });
+  const L = new THREE.TextureLoader();
+  L.load("img/logo.jpg", t => { t.encoding = THREE.sRGBEncoding; const m = new THREE.Mesh(new THREE.PlaneGeometry(4.4,2.2), new THREE.MeshStandardMaterial({map:t, emissive:0xffffff, emissiveMap:t, emissiveIntensity:.55, roughness:.4})); m.position.set(0,3.95,-7.94); scene.add(m); });
+  box(4.6,.06,.06,oro,0,5.08,-7.93); box(4.6,.06,.06,oro,0,2.82,-7.93);
+  L.load("img/ventana.jpg", t => { t.encoding = THREE.sRGBEncoding; const m = new THREE.Mesh(new THREE.PlaneGeometry(1.7,3.2), new THREE.MeshBasicMaterial({map:t})); m.position.set(-8.97,3.0,-3.2); m.rotation.y = PI/2; scene.add(m); });
+  box(.12,3.4,.12,negro,-8.9,3.0,-4.1); box(.12,3.4,.12,negro,-8.9,3.0,-2.3); box(.12,.12,1.9,negro,-8.9,4.65,-3.2); box(.12,.12,1.9,negro,-8.9,1.35,-3.2);
+  // Puerta lateral
+  box(.1,2.5,1.3,maderaOsc,8.95,1.25,-3.0); box(.12,.08,1.45,oro,8.92,2.52,-3.0);
+
+  // Estrado
+  box(6.4,.35,2.7,maderaOsc,0,.175,-6.35);
+  box(4.4,.95,.7,madera,0,.35+.475,-5.3); box(4.65,.07,.86,maderaOsc,0,1.335,-5.3);
+  box(4.4,.03,.02,oro,0,1.18,-4.94); box(4.4,.03,.02,oro,0,.42,-4.94);
+  const placa = new THREE.Mesh(new THREE.PlaneGeometry(1.5,.34), new THREE.MeshStandardMaterial({map:T.placa, roughness:.35, emissive:0x221808, emissiveMap:T.placa, emissiveIntensity:.4})); placa.position.set(0,.85,-4.93); scene.add(placa);
+  silla(0,.35,-6.2,0,0x111216,true);
+  [0x2b3e66,0x7a2026,0x1d4a34].forEach((c,i)=>box(.26,.08,.34,mat(c,.6),-1.6,1.41+i*.085,-5.45));
+  folder = { mesh: box(.33,.03,.24,mat(0xd8c58f,.8),3.3,.795,-4.3), holder:null };
+  gavel = new THREE.Group(); scene.add(gavel); gavel.position.set(-.85,1.39,-5.45);
+  cyl(.012,.012,.28,mat(0x3a2414,.5),0,0,0,gavel).rotation.z = PI/2; const cab = cyl(.045,.045,.13,mat(0x2a160b,.45),.14,0,0,gavel); cab.rotation.x = PI/2;
+  gavel.userData.home = gavel.position.clone();
+  cyl(.12,.12,.04,mat(0x2a160b,.45),-.85,1.39,-5.25);
+
+  // Bandera
+  cyl(.025,.025,3.4,oro,-4.4,1.7,-7.2); sph(.06,oro,-4.4,3.43,-7.2);
+  const fg = new THREE.PlaneGeometry(1.5,.9,14,6); flag = new THREE.Mesh(fg, new THREE.MeshStandardMaterial({map:T.bandera, side:THREE.DoubleSide, roughness:.8})); flag.position.set(-3.63,2.9,-7.2); flag.castShadow = true; scene.add(flag);
+  flag.userData.orig = Float32Array.from(fg.attributes.position.array);
+
+  // Escritorio de la técnica judicial
+  box(1.6,.06,.8,madera,3.4,.76,-4.25); box(1.6,.7,.04,maderaOsc,3.4,.38,-3.87); [-.75,.75].forEach(dx=>box(.04,.73,.7,maderaOsc,3.4+dx,.37,-4.25));
+  box(.55,.34,.04,negro,3.65,1.05,-4.45); const pant = new THREE.Mesh(new THREE.PlaneGeometry(.5,.29), new THREE.MeshBasicMaterial({map:T.pantalla})); pant.position.set(3.65,1.05,-4.475); pant.rotation.y = PI; scene.add(pant);
+  silla(3.4,0,-4.85,-.4,0x1c2333,false);
+
+  // Estrado del testigo
+  const tg = new THREE.Group(); tg.position.set(-3.6+Math.sin(.9)*.55,0,-4.6+Math.cos(.9)*.55); tg.rotation.y = .9; scene.add(tg);
+  box(.9,1.0,.08,madera,0,.5,0,tg); box(1.0,.05,.3,maderaOsc,0,1.02,-.08,tg);
+  silla(-3.6,0,-4.6,.9,0x3b2416,false);
+
+  // Mesas de las partes
+  [-2.4,2.4].forEach(cx=>{ box(2.6,.06,.9,madera,cx,.76,.2); box(2.6,.66,.04,maderaOsc,cx,.4,-.23); [-1.2,1.2].forEach(dx=>box(.05,.73,.8,maderaOsc,cx+dx,.37,.2));
+    box(.3,.01,.22,mat(0xf1f1ee,.9),cx+.3,.795,.35); box(.3,.01,.22,mat(0xf1f1ee,.9),cx-.5,.795,.3); });
+  box(.36,.02,.25,mat(0x2a2d33,.4,.5),2.0,.8,.25);
+  [[-1.9,.95],[-3.0,.95],[1.9,.95],[3.0,.95]].forEach(([x,z])=>silla(x,0,z,PI,0x1c2333,false));
+
+  // Barandilla y público
+  [-3.5,3.5].forEach(cx=>{ box(5.0,.07,.1,madera,cx,.95,2.35); box(5.0,.05,.08,madera,cx,.15,2.35); for(let i=0;i<=12;i++) cyl(.025,.025,.8,maderaOsc,cx-2.5+i*5/12,.55,2.35,scene,8); });
+  [3.6,4.9].forEach(z=>[-3.4,3.4].forEach(cx=>{ box(5.0,.08,.5,madera,cx,.45,z); box(5.0,.5,.06,maderaOsc,cx,.78,z+.28); }));
+  // Lámparas
+  [[-3,-3],[3,-3],[-3,3],[3,3]].forEach(([x,z])=>{ cyl(.5,.5,.06,mat(0xfff2d6,.4,0,{emissive:0xffe2a8, emissiveIntensity:1.2}),x,7.45,z); });
+
+  // Holograma de la IA
+  holo = new THREE.Group(); holo.position.set(1.85,2.05,-5.05); holo.rotation.y = -.35; scene.add(holo);
+  const hm = new THREE.MeshBasicMaterial({map:T.holo, transparent:true, opacity:.6, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide});
+  const hp = new THREE.Mesh(new THREE.PlaneGeometry(1.3,.81), hm); holo.add(hp); holo.userData.mat = hm;
+  const scan = new THREE.Mesh(new THREE.PlaneGeometry(1.26,.02), new THREE.MeshBasicMaterial({color:0x9cc6ff, transparent:true, opacity:.7, blending:THREE.AdditiveBlending, depthWrite:false})); scan.position.z = .01; holo.add(scan); holo.userData.scan = scan;
+  const anillo = new THREE.Mesh(new THREE.TorusGeometry(.42,.006,6,48), new THREE.MeshBasicMaterial({color:0x4c9bff, transparent:true, opacity:.45, blending:THREE.AdditiveBlending})); anillo.rotation.x = PI/2; anillo.position.y = -.48; holo.add(anillo); holo.userData.anillo = anillo;
+  holo.userData.luz = new THREE.PointLight(0x4c9bff,.7,4); holo.add(holo.userData.luz);
+
+  // Luces
+  scene.add(new THREE.HemisphereLight(0xffe7c4, 0x1a1410, .5));
+  const key = new THREE.DirectionalLight(0xfff1dc, 1.05); key.position.set(4,9,7); key.target.position.set(0,0,-3); scene.add(key, key.target);
+  key.castShadow = true; Object.assign(key.shadow.camera, {left:-10,right:10,top:10,bottom:-10,near:1,far:30}); key.shadow.mapSize.set(1024,1024); key.shadow.bias = -.0006;
+  const fill = new THREE.DirectionalLight(0x7aa6ff,.35); fill.position.set(-7,5,-2); scene.add(fill);
+  const pl = new THREE.PointLight(0xffc977,1.3,9); pl.position.set(0,3.6,-6.6); scene.add(pl);
+  const sp = new THREE.SpotLight(0xffe3b0,1.3,16,.45,.6); sp.position.set(0,6.8,-2.4); sp.target.position.set(0,1.3,-6); scene.add(sp, sp.target);
+  const win = new THREE.PointLight(0x6f8fff,.5,8); win.position.set(-7.6,3,-3.2); scene.add(win);
+
+  // Personajes
+  H.juez = humano({x:0, z:-6.2, base:.35, rot:0, seated:true, estilo:"woc", lentes:true, skin:0xd9a588, hair:0x0f0c0b, suit:0x1a2546, shirt:0xbcd0ee, tie:0xb01e2a, eye:0x2a1a10, escala:1.02});
+  H.laura = humano({x:3.4, z:-4.85, rot:-.4, seated:true, female:true, estilo:"moño", skin:0xc89274, hair:0x3a2416, suit:0x34466d, shirt:0xe9eef6, pants:0x22283a, eye:0x4a2e1a});
+  H.vega = humano({x:-1.9, z:.95, rot:PI, seated:true, beard:true, estilo:"corto", skin:0xcf9a7a, hair:0x2a1c14, suit:0x23262d, shirt:0xe8ecf2, tie:0x2d3f73});
+  H.carlos = humano({x:-3.0, z:.95, rot:PI, seated:true, casual:true, estilo:"corto", skin:0xc48b68, hair:0x1f1712, suit:0x5c6b58, pants:0x2f3542, eye:0x2b1c12});
+  H.mora = humano({x:1.9, z:.95, rot:PI, seated:true, female:true, estilo:"cola", skin:0xe2b398, hair:0x5a3a24, suit:0x1d1f26, shirt:0xf0f2f5, eye:0x3d5a3a});
+  H.javier = humano({x:3.0, z:.95, rot:PI, seated:true, casual:true, estilo:"corto", skin:0xd3a080, hair:0x3b2a1e, suit:0x6e2f35, pants:0x262b33});
+  H.testigo = humano({x:7.4, z:-3.0, rot:-PI/2, seated:false, casual:true, estilo:"gorra", gorra:0x1f3a5a, plaid:0x5a4a30, skin:0xae7853, hair:0x2a2a2a, suit:0x8a7a52, pants:0x3b4252, escala:.98});
+  H.testigo.root.visible = false;
+  const pub = [[-4.6,3.85],[-2.6,3.85],[3.2,3.85],[4.9,3.85],[-3.6,5.15],[2.4,5.15],[4.2,5.15]];
+  const ropa = [0x3c4a5c,0x5a3b3b,0x2f4f4f,0x6b5b3e,0x40364f,0x4d5a3a,0x7a6a5a], piel = [0xc68e6b,0xe0b096,0xa56c4a,0xd3a080,0xb27b57,0xd6a487,0x8d5a3c];
+  pub.forEach(([x,z],i)=>{ H["p"+i] = humano({x, z:z+.05, rot:PI, seated:true, female:i%2===1, casual:i%3===0, estilo:i%2? (i%3===1?"moño":"melena") : "corto", skin:piel[i], hair:[0x2a1c14,0x111111,0x6b6b6b,0x4a3020][i%4], suit:ropa[i], pants:0x23262c}); H["p"+i].publico = true; });
+}
+
+function ang(a){ while(a>PI) a-=2*PI; while(a<-PI) a+=2*PI; return a; }
+function k(dt, s){ return 1 - Math.exp(-dt*s); }
+function tarea(h, dt){
+  if (!h.task && h.queue.length){ h.task = h.queue.shift(); h.task.t = 0; }
+  const tk = h.task; if (!tk) return; tk.t += dt;
+  const fin = () => { h.task = null; };
+  switch(tk.type){
+    case "stand": h.sitT = 0; if (h.sit < .06) fin(); break;
+    case "sit": h.sitT = 1; if (tk.arg != null) h.rotT = tk.arg; if (h.sit > .94 && Math.abs(ang(h.rot-h.rotT)) < .08) fin(); break;
+    case "walk": { if (!tk.p) tk.p = tk.arg.map(a=>a.slice()); const [x,z] = tk.p[0], dx = x-h.x, dz = z-h.z, d = Math.hypot(dx,dz);
+      if (d < .05){ tk.p.shift(); if (!tk.p.length){ h.walkT = 0; fin(); } }
+      else { h.walkT = 1; const s = Math.min(d, h.speed*dt*Math.min(1, h.walk+.25)); h.x += dx/d*s; h.z += dz/d*s; h.rotT = Math.atan2(dx,dz); } break; }
+    case "face": h.rotT = tk.arg; if (Math.abs(ang(h.rot-h.rotT)) < .06) fin(); break;
+    case "pick": folder.holder = h; fin(); break;
+    case "give": h.pose = "give"; if (!tk.f && tk.t > .8){ tk.f = 1; folder.holder = null; folder.mesh.position.set(.35,1.385,-5.5); folder.mesh.rotation.set(0,0,0); } if (tk.t > 1.4){ h.pose = null; fin(); } break;
+    case "point": h.pose = "point"; if (tk.t > (tk.arg||1.6)){ h.pose = null; fin(); } break;
+    case "gavel": h.pose = "gavel"; h.gv = tk.t; [.55,1.05,1.55].forEach((m,i)=>{ if (!tk["g"+i] && tk.t > m){ tk["g"+i] = 1; golpe(); } }); if (tk.t > 2.0){ h.pose = null; fin(); } break;
+    case "show": h.root.visible = true; fin(); break;
+    case "hide": h.root.visible = false; fin(); break;
+    default: fin();
+  }
+}
+
+function animarHumano(h, dt, t){
+  tarea(h, dt);
+  h.rot += ang(h.rotT - h.rot) * k(dt,6);
+  h.sit += (h.sitT - h.sit) * k(dt,4.5);
+  h.walk += (h.walkT - h.walk) * k(dt,8);
+  h.root.position.set(h.x, h.base, h.z); h.root.rotation.y = h.rot;
+  const s = h.sit, w = h.walk, K = k(dt,10);
+  if (w > .01) h.phase += dt*8.5;
+  const sw = Math.sin(h.phase) * .55 * w;
+  h.hips.position.y = .975 - (.975-.55)*s + Math.abs(Math.sin(h.phase))*.025*w;
+  const J = (o, ax, v) => { o.rotation[ax] += (v - o.rotation[ax]) * K; };
+  J(h.lR.hp,"x", -PI/2*s + sw); J(h.lL.hp,"x", -PI/2*s - sw);
+  J(h.lR.kn,"x", PI/2*s + Math.max(0,-Math.sin(h.phase))*.7*w); J(h.lL.kn,"x", PI/2*s + Math.max(0,Math.sin(h.phase))*.7*w);
+  // brazos
+  let rX = -.55*s, rE = -.8*s, rZ = -.08, lX = -.55*s, lE = -.8*s, lZ = .08;
+  if (w > .05){ rX = -sw*.7; lX = sw*.7; rE = -.25; lE = -.25; }
+  if (h.talking && !h.pose){ rX = (s>.5?-.85:-.55) + Math.sin(t*2.6+h.seed)*.22; rE = -1.05 + Math.sin(t*3.3)*.25; rZ = .12; if (s<.5){ lX = -.35 + Math.sin(t*2.1)*.12; lE = -.6; } }
+  if (h.pose === "think"){ rX = -1.0; rE = -1.9; rZ = .38; lX = -1.0; lE = -1.9; lZ = -.38; }
+  if (h.pose === "point"){ rX = -1.45; rE = -.1; rZ = .05; }
+  if (h.pose === "give"){ rX = -1.15; rE = -.35; rZ = .05; }
+  if (h.pose === "gavel"){ const ph = Math.max(0, Math.sin((h.gv-.05)*PI*2)); rX = -.9 - ph*1.0; rE = -.7 + ph*.3; rZ = .1; }
+  J(h.aR.sh,"x",rX); J(h.aR.el,"x",rE); J(h.aR.sh,"z",rZ); J(h.aL.sh,"x",lX); J(h.aL.el,"x",lE); J(h.aL.sh,"z",lZ);
+  // respiración y cabeza
+  h.chest.scale.y = 1 + Math.sin(t*1.6 + h.seed)*.012;
+  let yaw = 0, pitch = 0;
+  const tgt = mirarA(h);
+  if (tgt && w < .3){ const hx = h.x, hz = h.z; yaw = Math.max(-1.1, Math.min(1.1, ang(Math.atan2(tgt.x-hx, tgt.z-hz) - h.rot))); }
+  else yaw = Math.sin(t*.4 + h.seed)*.15;
+  if (h.talking) pitch = Math.sin(t*5.2+h.seed)*.05;
+  if (h.pose === "think") pitch = .12;
+  h.yaw += (yaw - h.yaw) * k(dt,5);
+  h.chest.rotation.y = h.yaw*.3; h.head.rotation.y = h.yaw*.7; J(h.head,"x",pitch);
+  const ab = h.talking ? Math.abs(Math.sin(t*12.5 + h.seed))*(.55 + .45*Math.sin(t*2.7 + h.seed)) : 0;
+  h.open += (ab - h.open) * k(dt,18);
+  h.mouth.lower.position.y = .066 - h.open*.013; h.mouth.inner.scale.y = .15 + h.open*1.2;
+  if (t > h.nextBlink){ h.blinkT = .13; h.nextBlink = t + 2.2 + Math.random()*3.8; }
+  h.blinkT -= dt; const cerr = h.blinkT > 0;
+  h.lids.forEach(l => { l.scale.y = cerr ? 1.05 : .42; l.position.y = cerr ? .136 : .143; });
+  h.hips.rotation.z = Math.sin(t*.7 + h.seed)*.018*(1-s)*(1-w);
+  if (w > .4){ const paso = Math.floor(h.phase/PI); if (paso !== h.lastStep){ h.lastStep = paso; if (h.root.visible) sfxPaso(h); } }
+}
+
+function mirarA(h){
+  if (h === H.juez && speaker && speaker !== H.juez) return speaker.root.position;
+  if (speaker && speaker !== h) return speaker.root.position;
+  if (speaker === h){ return h === H.juez ? V(0,0,2) : H.juez.root.position; }
+  if (iaActiva) return holo.position;
+  return h.publico || h === H.laura ? H.juez.root.position : null;
+}
+
+const SHOTS = {
+  general: () => [V(0,4.1,8.6), V(0,1.25,-3.4)],
+  frente: () => [V(0,2.6,-3.6), V(0,1.0,1.6)],
+  mesa: () => [V(.25,2.55,-4.35), V(0,1.25,-5.6)],
+  ia: () => [V(.55,2.15,-2.75), V(1.75,1.9,-5.1)],
+  orbit: (t) => { const a = Math.sin(t*.13)*1.05; return [V(Math.sin(a)*7.6, 4.3, -1.6 + Math.cos(a)*7.6), V(0,1.4,-3.6)]; }
+};
+function headPos(h){ const v = V(0,0,0); h.head.getWorldPosition(v); v.y += .12; return v; }
+function shotHumano(h){
+  const hp = headPos(h), f = V(Math.sin(h.rot),0,Math.cos(h.rot)), side = V(f.z,0,-f.x);
+  const asp = camera.aspect, d = (asp < .8 ? 2.2 : 1.6) + (h === H.juez ? .45 : 0);
+  const pos = hp.clone().add(f.multiplyScalar(d)).add(side.multiplyScalar(.45)).add(V(0,.14,0));
+  return [pos, hp.clone().add(V(0,-.08,0))];
+}
+function metaCamara(t){ if (SHOTS[camShot]) return SHOTS[camShot](t); if (H[camShot]) return shotHumano(H[camShot]); return SHOTS.general(); }
+
+function tick(){
+  requestAnimationFrame(tick);
+  if ($("juego").hidden || !GL) return;
+  const dt = Math.min(clock.getDelta(), .05); t3 += dt;
+  for (const n in H) animarHumano(H[n], dt, t3);
+  H.juez.pose = H.juez.pose === "gavel" ? "gavel" : (pensando ? "think" : (H.juez.pose === "think" ? null : H.juez.pose));
+  if (folder.holder){ const v = V(0,0,0); folder.holder.aR.hand.getWorldPosition(v); folder.mesh.position.set(v.x, v.y-.03, v.z); folder.mesh.rotation.y = folder.holder.rot; }
+  if (H.juez.pose === "gavel"){ const v = V(0,0,0); H.juez.aR.hand.getWorldPosition(v); gavel.position.copy(v); gavel.rotation.set(0,PI/2,-.4); }
+  else { gavel.position.lerp(gavel.userData.home, k(dt,8)); gavel.rotation.set(0,0,0); }
+  const pa = flag.geometry.attributes.position, o = flag.userData.orig;
+  for (let i=0;i<pa.count;i++){ const x = o[i*3]; pa.array[i*3+2] = Math.sin(x*3.2 + t3*2.6)*.07*((x+.75)/1.5); }
+  pa.needsUpdate = true; flag.geometry.computeVertexNormals();
+  const act = iaActiva ? 1 : 0, hm = holo.userData.mat;
+  hm.opacity += ((act ? .95 : .45) + Math.sin(t3*(act?6:2))*.06 - hm.opacity) * k(dt,6);
+  holo.position.y = 2.05 + Math.sin(t3*1.3)*.04; holo.rotation.y = -.35 + Math.sin(t3*.5)*.06;
+  holo.userData.scan.position.y = ((t3*.35)%1 - .5)*.78; holo.userData.anillo.rotation.z = t3*.6; holo.userData.luz.intensity = act ? 1.6 : .6;
+  const [gp, gl] = metaCamara(t3), kk = reduce ? 1 : k(dt, camShot === "orbit" ? 1.2 : 2.3);
+  camPos.lerp(gp, kk); camLook.lerp(gl, kk);
+  const right = V(0,0,0).subVectors(camLook, camPos).cross(V(0,1,0)).normalize();
+  camera.position.copy(camPos).addScaledVector(right, parX*.22).add(V(0, -parY*.12, 0));
+  camera.lookAt(camLook);
+  viewOff += (viewOffT - viewOff) * k(dt,6);
+  const W = renderer.domElement.clientWidth, Ht = renderer.domElement.clientHeight;
+  camera.setViewOffset(W, Ht, 0, viewOff, W, Ht);
+  renderer.render(scene, camera);
+  posTag(W, Ht);
+}
+let pensando = false;
+
+function posTag(W, Ht){
+  const tg = $("tag");
+  let target = null, label = "", esIA = false;
+  if (speaker){ target = headPos(speaker).add(V(0,.25,0)); label = speakerNombre; }
+  else if (iaActiva){ target = holo.position.clone().add(V(0,.55,0)); label = "IA Jurídica"; esIA = true; }
+  if (!target || !$("capaHoja").hidden && !iaActiva){ tg.hidden = true; return; }
+  target.project(camera);
+  if (target.z > 1 || Math.abs(target.x) > 1.05 || target.y > .95 || target.y < -1){ tg.hidden = true; return; }
+  tg.hidden = false; tg.textContent = label; tg.className = "tag" + (esIA ? " ia" : "");
+  tg.style.left = ((target.x+1)/2*W) + "px"; tg.style.top = ((1-target.y)/2*Ht) + "px";
+}
+let speakerNombre = "";
+
+function iniciar3D(){
+  try {
+    if (!window.THREE) throw new Error("sin three");
+    renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:"high-performance"});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    $("stage").appendChild(renderer.domElement);
+    scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(50, 1, .1, 60); clock = new THREE.Clock();
+    construirSala(); GL = true;
+    camPos = V(0,4.6,9.5); camLook = V(0,1.2,-3.4);
+    redimensionar(); addEventListener("resize", redimensionar);
+    $("stage").addEventListener("pointermove", e => { const r = $("stage").getBoundingClientRect(); parX = ((e.clientX-r.left)/r.width - .5)*2; parY = ((e.clientY-r.top)/r.height - .5)*2; });
+    tick();
+  } catch(e){ GL = false; $("stage").classList.add("sinGL"); }
+}
+function redimensionar(){ if (!GL) return; const w = $("stage").clientWidth, h = $("stage").clientHeight; renderer.setSize(w, h, false); camera.aspect = w/h; camera.fov = w/h < .8 ? 62 : 48; camera.updateProjectionMatrix(); ajustarOffset(); }
+
+/* ======================= SONIDO Y VOZ ======================= */
+const SND = { ctx:null, master:null, on:true, musGain:null, timer:null };
+function audioInit(){
+  try {
+    if (SND.ctx){ if (SND.ctx.state === "suspended") SND.ctx.resume(); return; }
+    const C = new (window.AudioContext||window.webkitAudioContext)(); SND.ctx = C;
+    SND.master = C.createGain(); SND.master.gain.value = SND.on ? 1 : 0; SND.master.connect(C.destination);
+    ambiente(); musica();
+  } catch(e){}
+}
+function ruidoBuffer(seg, marron){ const C = SND.ctx, b = C.createBuffer(1, Math.floor(C.sampleRate*seg), C.sampleRate), d = b.getChannelData(0); let last = 0;
+  for (let i=0;i<d.length;i++){ const w = Math.random()*2-1; if (marron){ last = (last + .02*w)/1.02; d[i] = last*3.5; } else d[i] = w; } return b; }
+function ambiente(){ const C = SND.ctx, n = C.createBufferSource(), f = C.createBiquadFilter(), g = C.createGain();
+  n.buffer = ruidoBuffer(4, true); n.loop = true; f.type = "lowpass"; f.frequency.value = 420; g.gain.value = .07; n.connect(f).connect(g).connect(SND.master); n.start(); }
+function musica(){
+  const C = SND.ctx, g = C.createGain(), f = C.createBiquadFilter(); g.gain.value = 0; f.type = "lowpass"; f.frequency.value = 950; f.Q.value = .4;
+  g.connect(f).connect(SND.master); SND.musGain = g; g.gain.setTargetAtTime(.045, C.currentTime, 3);
+  const acordes = [[73.42,146.83,174.61,220.0],[58.27,116.54,146.83,174.61],[87.31,174.61,220.0,261.63],[65.41,130.81,164.81,196.0]];
+  const osc = [0,1,2,3].map(i => { const o = C.createOscillator(), o2 = C.createOscillator(), gg = C.createGain(); o.type = "triangle"; o2.type = "sawtooth"; o2.detune.value = 7;
+    gg.gain.value = i === 0 ? .55 : .3; const g2 = C.createGain(); g2.gain.value = .12; o.connect(gg); o2.connect(g2).connect(gg); gg.connect(g); o.start(); o2.start(); return [o,o2]; });
+  const lfo = C.createOscillator(), lg = C.createGain(); lfo.frequency.value = .08; lg.gain.value = 260; lfo.connect(lg).connect(f.frequency); lfo.start();
+  let k = 0; const cambia = () => { const a = acordes[k++ % acordes.length], t0 = C.currentTime; osc.forEach(([o,o2],i) => { o.frequency.setTargetAtTime(a[i], t0, .8); o2.frequency.setTargetAtTime(a[i], t0, .8); }); };
+  cambia(); SND.timer = setInterval(cambia, 7000);
+}
+function tono(f0, f1, dur, tipo="sine", vol=.3, delay=0){ if (!SND.ctx) return; const C = SND.ctx, t0 = C.currentTime + delay, o = C.createOscillator(), g = C.createGain();
+  o.type = tipo; o.frequency.setValueAtTime(f0, t0); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t0+dur); g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0+.012);
+  g.gain.exponentialRampToValueAtTime(.0001, t0+dur); o.connect(g).connect(SND.master); o.start(t0); o.stop(t0+dur+.05); }
+function ruido(dur, tipo, freq, vol, delay=0, q=.8){ if (!SND.ctx) return; const C = SND.ctx, t0 = C.currentTime + delay, n = C.createBufferSource(), f = C.createBiquadFilter(), g = C.createGain();
+  n.buffer = ruidoBuffer(dur, false); f.type = tipo; f.frequency.value = freq; f.Q.value = q; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.0001, t0+dur);
+  n.connect(f).connect(g).connect(SND.master); n.start(t0); }
+const SFX = {
+  click: () => tono(1100, 900, .05, "sine", .08),
+  papel: () => { ruido(.22, "bandpass", 3200, .22, 0, .7); ruido(.18, "bandpass", 2400, .16, .16, .7); },
+  fase: () => { tono(55, 41, 1.6, "sine", .5); tono(440, 440, 1.4, "triangle", .05, .05); tono(659, 659, 1.3, "triangle", .035, .25); },
+  ok: () => { tono(660, 660, .16, "sine", .2); tono(990, 990, .28, "sine", .2, .12); },
+  parcial: () => { tono(520, 520, .16, "sine", .16); tono(600, 600, .24, "sine", .14, .12); },
+  mal: () => { tono(220, 140, .38, "sawtooth", .09); tono(110, 80, .4, "sine", .2); },
+  holo: () => { tono(900, 1700, .16, "sine", .1); tono(1300, 2100, .12, "sine", .07, .12); },
+  sello: () => { tono(95, 50, .3, "sine", .5); ruido(.12, "lowpass", 1500, .4); },
+  golpe: () => { tono(180, 42, .28, "sine", .9); ruido(.05, "lowpass", 1800, .5); }
+};
+function golpe(){ SFX.golpe(); }
+function sfxPaso(h){ if (!SND.ctx || !camera) return; const d = camera.position.distanceTo(h.root.position), v = Math.min(.35, .9/(1+d*.45));
+  tono(95, 60, .09, "sine", v); ruido(.07, "lowpass", 700, v*.8); }
+function setSonido(on){ SND.on = on; if (SND.master) SND.master.gain.setTargetAtTime(on ? 1 : 0, SND.ctx.currentTime, .05); }
+
+const VOZ = { on:true, sup:("speechSynthesis" in window) && typeof SpeechSynthesisUtterance !== "undefined", voces:[] };
+function cargarVoces(){ try { VOZ.voces = speechSynthesis.getVoices().filter(v => /^es/i.test(v.lang)); } catch(e){} }
+if (VOZ.sup){ cargarVoces(); try { speechSynthesis.onvoiceschanged = cargarVoces; } catch(e){} }
+const PERFIL = { juez:{g:"m",p:.85,r:.95}, laura:{g:"f",p:1.12,r:1.0}, vega:{g:"m",p:1.02,r:1.04}, mora:{g:"f",p:.95,r:1.05},
+  carlos:{g:"m",p:1.08,r:.94}, javier:{g:"m",p:.9,r:1.0}, testigo:{g:"m",p:.78,r:.92}, ia:{g:"f",p:1.3,r:1.08}, narrador:{g:"m",p:.72,r:.9} };
+const FEM = /(paulina|m[oó]nica|helena|laura|sabina|elvira|marisol|esperanza|soledad|luc[ií]a|elena|carmen|paloma|francisca|ximena|camila|valentina|dalia|renata|isabela|ang[eé]lica|hilda|abril|beatriz|nora|female|mujer|google espa)/i;
+const MAS = /(jorge|diego|juan|pablo|ra[uú]l|[aá]lvaro|carlos|enrique|andr[eé]s|gonzalo|jos[eé]|alonso|arnau|gerardo|tom[aá]s|federico|lorenzo|dario|rodrigo|antonio|alberto|manuel|eduardo|jaime|sergio|male\b|hombre)/i;
+function vozPara(who){
+  const pf = PERFIL[who] || PERFIL.narrador, vs = VOZ.voces; if (!vs.length) return null;
+  const pref = l => /es[-_](CR|MX|US|419|CO|AR|CL|PE)/i.test(l) ? 0 : /es[-_]ES/i.test(l) ? 1 : 2;
+  let cand = vs.filter(v => pf.g === "f" ? (FEM.test(v.name) && !MAS.test(v.name)) : MAS.test(v.name));
+  if (!cand.length) cand = vs.slice();
+  cand.sort((a,b) => pref(a.lang) - pref(b.lang));
+  const n = [...who].reduce((a,c)=>a+c.charCodeAt(0),0) % Math.min(cand.length, 3);
+  return cand[n];
+}
+function paraVoz(t){
+  return t.replace(/₡\s?([\d.]+)/g, (_, n) => { const v = Number(n.replace(/\./g,"")); if (v % 1000000 === 0){ const m = v/1000000; return (m === 1 ? "un millón" : m + " millones") + " de colones"; } return v.toLocaleString("es-CR") + " colones"; })
+    .replace(/Licda\./g,"licenciada").replace(/Lic\./g,"licenciado").replace(/[«»]/g,"").replace(/\bF-0(\d+)/g,"factura cero $1").replace(/art\./g,"artículo");
+}
+function decir(texto, who, cb={}){
+  if (!VOZ.on || !VOZ.sup) return false;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(paraVoz(texto)), v = vozPara(who), pf = PERFIL[who] || PERFIL.narrador;
+    if (v){ u.voice = v; u.lang = v.lang; } else u.lang = "es-CR";
+    u.pitch = pf.p; u.rate = pf.r; u.volume = 1;
+    if (cb.start) u.onstart = cb.start; if (cb.end){ u.onend = cb.end; u.onerror = cb.end; } if (cb.boundary) u.onboundary = cb.boundary;
+    speechSynthesis.speak(u); return true;
+  } catch(e){ return false; }
+}
+function callar(){ if (VOZ.sup) try { speechSynthesis.cancel(); } catch(e){} }
+function desbloquearVoz(){ if (!VOZ.sup) return; try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } catch(e){} }
+
+/* ======================= LÓGICA DEL JUEGO ======================= */
+let S = null, SNAP = null, typing = null, temporizador = null;
+function nuevo(){ return { i:0, pts:{val:0,fund:0,dp:0,imp:0,ia:0}, dec:{}, fallos:[], clas:{} }; }
+function total(){ return Object.values(S.pts).reduce((a,b)=>a+b,0); }
+function faseActual(){ let n = 1; for (let j=0;j<=S.i;j++) if (GUION[j].t === "fase") n = GUION[j].n; return n; }
+function hud(){ const f = faseActual(), nm = ["","El conflicto","La contradicción","La investigación","La sentencia"];
+  $("hudFase").textContent = `FASE ${f}/4 · ${nm[f].toUpperCase()}`; $("hudIndice").textContent = total(); $("hudBarra").style.width = Math.round(S.i/(GUION.length-1)*100) + "%"; }
+function retrato(key){ const p = P[key]; if (p.ia) return `<span class="retrato ia" aria-hidden="true">${IA_SVG}</span>`; if (p.img) return `<img class="retrato" src="${p.img}" alt="">`; return `<span class="retrato" aria-hidden="true">${p.ini}</span>`; }
+function hablante(key){ return `<div class="hablante">${retrato(key)}<div><div class="nombre">${P[key].n}</div><div class="rol">${P[key].r}</div></div></div>`; }
+function ajustarOffset(){ const dl = $("capaDlg"), ho = $("capaHoja"); let hgt = 0; if (!ho.hidden) hgt = ho.offsetHeight*.5; else if (!dl.hidden) hgt = dl.offsetHeight*.42; viewOffT = Math.min(hgt, (window.innerHeight||600)*.32); }
+function ocultarCapas(){ $("capaDlg").hidden = true; $("capaHoja").hidden = true; $("faseCard").hidden = true; $("capaDlg").innerHTML = ""; $("capaHoja").innerHTML = ""; }
+function hablar(key, on){ if (speaker){ speaker.talking = false; } speaker = null; speakerNombre = ""; iaActiva = false;
+  if (!on) return; if (key === "ia"){ iaActiva = true; return; } if (H[key]){ speaker = H[key]; speakerNombre = P[key].n; speaker.talking = true; } }
+
+function ejecutarActos(acts){ if (!GL || !acts) return; for (const n in acts){ const h = H[n]; if (!h) continue; acts[n].forEach(a => h.queue.push({type:a[0], arg:a[1]})); } }
+function asentar(i){
+  if (!GL) return;
+  for (const n in H){ const h = H[n]; h.queue = []; h.task = null; h.pose = null; h.talking = false; h.walkT = h.walk = 0;
+    h.x = h.home.x; h.z = h.home.z; h.rot = h.rotT = h.home.rot; h.sit = h.sitT = h.home.seated ? 1 : 0; }
+  const iIn = GUION.findIndex(e=>e.mark==="testigoIn"), iOut = GUION.findIndex(e=>e.mark==="testigoOut");
+  const tg = H.testigo; tg.root.visible = false;
+  if (i > iIn && i < iOut){ tg.root.visible = true; tg.x = -3.6; tg.z = -4.6; tg.rot = tg.rotT = .9; tg.sit = tg.sitT = 1; }
+  const iDem = GUION.findIndex(e=>e.t==="doc");
+  if (i > 1){ folder.holder = null; folder.mesh.position.set(.35,1.385,-5.5); folder.mesh.rotation.set(0,0,0); }
+  else { folder.holder = null; folder.mesh.position.set(3.3,.795,-4.3); }
+}
+
+function pintar(){
+  SNAP = JSON.parse(JSON.stringify(S));
+  clearTimeout(temporizador); detenerTipeo(); callar(); ocultarCapas(); hud();
+  const e = GUION[S.i];
+  camShot = e.cam || (e.t === "fase" ? "orbit" : (e.t === "dec" ? "juez" : "general"));
+  pensando = (e.t === "dec" || e.t === "clas");
+  hablar(null, false);
+  if (e.t === "ia") iaActiva = true;
+  ejecutarActos(e.act);
+  if (e.t === "fase") return mostrarFase(e);
+  if (e.t === "dlg") return mostrarDialogo(e);
+  if (e.t === "doc"){ SFX.papel(); return mostrarHoja(`<p class="eyebrow">Expediente sobre el estrado</p>${e.html}<div class="acciones"><button type="button" class="btn" data-sig>Continuar ▸</button></div>`); }
+  if (e.t === "dec" || e.t === "ia") return mostrarDecision(e);
+  if (e.t === "clas") return mostrarClasificacion();
+  if (e.t === "apelacion"){ pensando = false; temporizador = setTimeout(mostrarApelacion, GL ? 2300 : 0); return; }
+  if (e.t === "final"){ SFX.ok(); return mostrarFinal(); }
+}
+function mostrarHoja(html){ const c = $("capaHoja"); c.innerHTML = `<div class="hoja">${html}</div>`; c.hidden = false; c.querySelector(".hoja").scrollTop = 0;
+  c.querySelectorAll("[data-sig]").forEach(b => b.addEventListener("click", avanzar)); requestAnimationFrame(ajustarOffset); const f = c.querySelector("button"); if (f) f.focus({preventScroll:true}); }
+function mostrarFase(e){ const c = $("faseCard"); c.innerHTML = `<div class="in"><span class="n">FASE ${e.n} DE 4</span><h2>${e.tit}</h2><p>${e.sub}</p><button type="button" class="btn" data-sig>Comenzar fase ▸</button></div>`;
+  c.hidden = false; c.querySelector("[data-sig]").addEventListener("click", avanzar); c.querySelector("[data-sig]").focus({preventScroll:true}); viewOffT = 0;
+  SFX.fase(); const nums = ["","uno","dos","tres","cuatro"]; decir(`Fase ${nums[e.n]}. ${e.tit}.`, "narrador"); }
+
+function mostrarDialogo(e){
+  const c = $("capaDlg");
+  c.innerHTML = `<div class="dlg${e.who==="ia"?" ia":""}">${hablante(e.who)}<p class="texto" id="dlgTxt" aria-live="polite"></p>
+    <div class="pie"><span class="ayuda">Toque la sala o pulse Espacio para continuar</span><button type="button" class="btn cont" id="btnCont">Continuar <span class="flecha">▸</span></button></div></div>`;
+  c.hidden = false; requestAnimationFrame(ajustarOffset);
+  hablar(e.who, true);
+  $("btnCont").addEventListener("click", e2 => { e2.stopPropagation(); continuarDialogo(); });
+  $("btnCont").focus({preventScroll:true});
+  tipear(e.txt, e.who);
+}
+function tipear(txt, who){
+  const el = $("dlgTxt");
+  let revelar = 0, vozFin = false;
+  const hablando = decir(txt, who, {
+    start: () => { if (speaker) speaker.talking = true; if (who === "ia") iaActiva = true; },
+    end: () => { vozFin = true; revelar = txt.length; if (speaker) speaker.talking = false; },
+    boundary: ev => { if (typeof ev.charIndex === "number") revelar = Math.max(revelar, ev.charIndex + (ev.charLength || 6)); }
+  });
+  if (who === "ia") SFX.holo();
+  if (reduce){ el.textContent = txt; typing = null; if (!hablando) setTimeout(()=>{ if (speaker) speaker.talking = false; }, 600); return; }
+  const cps = hablando ? 13.5*((PERFIL[who]||{}).r||1) : 46;
+  let i = 0, last = performance.now(), acc = 0;
+  typing = { txt, raf:0 };
+  const paso = now => { acc += (now-last)/1000*cps; last = now; const n = Math.min(txt.length, Math.max(Math.floor(acc), Math.round(revelar*.98)));
+    if (n > i){ i = n; el.textContent = txt.slice(0,i); }
+    if (i < txt.length) typing.raf = requestAnimationFrame(paso);
+    else { typing = null; if (!hablando || vozFin) setTimeout(()=>{ if (speaker && !typing) speaker.talking = false; }, 350); } };
+  typing.raf = requestAnimationFrame(paso);
+}
+function detenerTipeo(){ if (typing){ cancelAnimationFrame(typing.raf); typing = null; } }
+function continuarDialogo(){
+  if (typing){ const t = typing.txt; detenerTipeo(); $("dlgTxt").textContent = t; return; }
+  SFX.click(); callar(); avanzar();
+}
+
+function nivel(p, max){ return p === max ? "full" : p > 0 ? "part" : "cero"; }
+function mostrarDecision(e){
+  const L = "ABCD";
+  const cab = e.t === "ia" ? `${hablante("ia")}<p class="dialogo-ia">${e.msg}</p><p class="pregunta">¿Qué hace con esta sugerencia?</p>` : `${hablante("juez")}<p class="pregunta">${e.q}</p>`;
+  mostrarHoja(`${cab}<ol class="ops">${e.ops.map((o,j)=>`<li><button type="button" class="op" data-k="${j}"><span class="l">${L[j]}</span><span>${o.t}</span></button></li>`).join("")}</ol><div id="fbZona"></div>`);
+  $("capaHoja").querySelectorAll(".op").forEach(b => b.addEventListener("click", () => decidir(e, Number(b.dataset.k))));
+  if (e.t === "ia"){ SFX.holo(); decir(e.msg, "ia"); }
+}
+function decidir(e, j){
+  const o = e.ops[j], max = Math.max(...e.ops.map(x=>x.p));
+  S.pts[e.cat] += o.p; if (e.id) S.dec[e.id] = o.p === max;
+  if (o.p < max) S.fallos.push({cat:e.cat, q:e.q || "Sugerencia de la IA", fb:o.fb});
+  $("capaHoja").querySelectorAll(".op").forEach(b => { const x = e.ops[Number(b.dataset.k)]; b.disabled = true; b.classList.add(nivel(x.p,max)); if (Number(b.dataset.k) === j) b.classList.add("sel"); else if (x.p !== max) b.classList.add("apaga"); });
+  const nv = nivel(o.p,max), et = {full:"Decisión ajustada a derecho", part:"Decisión con reparos", cero:"Decisión errónea"}[nv];
+  callar(); (nv === "full" ? SFX.ok : nv === "part" ? SFX.parcial : SFX.mal)();
+  $("fbZona").innerHTML = `<div class="fb ${nv}" role="status"><span class="v">${et}</span><p>${o.fb}</p><span class="pts">+${o.p} · ${CAT[e.cat]}</span></div><div class="acciones"><button type="button" class="btn" id="btnSigDec">Continuar ▸</button></div>`;
+  $("btnSigDec").addEventListener("click", avanzar); $("btnSigDec").focus({preventScroll:true});
+  $("fbZona").scrollIntoView({behavior: reduce ? "auto" : "smooth", block:"nearest"});
+  pensando = false; iaActiva = e.t === "ia"; ejecutarActos(e.after); hud(); requestAnimationFrame(ajustarOffset);
+}
+
+function mostrarClasificacion(){
+  mostrarHoja(`${hablante("juez")}<p class="pregunta">Califique cada factura según la prueba</p>
+    <p style="color:var(--muted)">Distinga los gastos de conservación, que ambos condueños deben soportar según su cuota, de las mejoras que el otro no consintió y de los gastos que no se demostraron.</p>
+    <div class="items">${FACTURAS.map((f,i)=>`<div class="item" data-i="${i}"><div class="top"><b>${f.d}</b><span>${f.id} · ${colones(f.m)}</span></div>
+      <div class="seg" role="group" aria-label="Calificación de ${f.id}">${Object.entries(CLASES).map(([c,l])=>`<button type="button" data-c="${c}" aria-pressed="false">${l}</button>`).join("")}</div><p class="nota" hidden></p></div>`).join("")}</div>
+    <div id="fbZona"><div class="acciones"><button type="button" class="btn" id="btnCalif" disabled>Confirmar calificación</button></div></div>`);
+  S.clas = {};
+  $("capaHoja").querySelectorAll(".item").forEach(it => { const i = Number(it.dataset.i);
+    it.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => { if (it.dataset.cerrado) return; S.clas[i] = b.dataset.c;
+      it.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); $("btnCalif").disabled = Object.keys(S.clas).length < FACTURAS.length; })); });
+  $("btnCalif").addEventListener("click", corregirClasificacion);
+}
+function corregirClasificacion(){
+  let ac = 0;
+  $("capaHoja").querySelectorAll(".item").forEach(it => { const i = Number(it.dataset.i), f = FACTURAS[i], el = S.clas[i]; it.dataset.cerrado = "1";
+    it.querySelectorAll(".seg button").forEach(b => { b.disabled = true; if (b.dataset.c === f.ok) b.classList.add("ok"); else if (b.dataset.c === el) b.classList.add("mal"); });
+    const n = it.querySelector(".nota"); n.hidden = false; n.textContent = (el === f.ok ? "Correcto. " : `Corresponde: ${CLASES[f.ok]}. `) + f.nota;
+    if (el === f.ok) ac++; else S.fallos.push({cat:"val", q:`Calificación de ${f.id}`, fb:f.nota}); });
+  const p = ac*4; S.pts.val += p; const nv = nivel(p,24); (nv === "full" ? SFX.ok : nv === "part" ? SFX.parcial : SFX.mal)();
+  $("fbZona").innerHTML = `<div class="fb ${nv}" role="status"><span class="v">${ac} de 6 facturas bien calificadas</span><p>Gastos de conservación acreditados: ₡8.000.000. Cuota del demandado (50 %): ₡4.000.000.</p><span class="pts">+${p} · ${CAT.val}</span></div><div class="acciones"><button type="button" class="btn" id="btnSigCl">Continuar ▸</button></div>`;
+  $("btnSigCl").addEventListener("click", avanzar); $("btnSigCl").focus({preventScroll:true}); pensando = false; hud();
+}
+
+function mostrarApelacion(){
+  const d = S.dec; let sello, tit, raz = [];
+  if (d.disp && d.monto && d.fund){ sello = ["ok","CONFIRMA"]; tit = "El tribunal confirma su sentencia"; raz.push("La sentencia distingue correctamente los gastos de conservación de las mejoras no consentidas y desvirtúa el gasto no acreditado."); }
+  else if (d.disp){ sello = ["warn","REVOCA PARCIALMENTE"]; tit = "El tribunal modifica su sentencia";
+    if (!d.monto) raz.push("El monto no corresponde a la cuota del demandado en los gastos de conservación acreditados. Se fija en ₡4.000.000.");
+    if (!d.fund) raz.push("La motivación es insuficiente: no aplica el deber legal de contribuir a la conservación de la cosa común (art. 271 del Código Civil) ni califica cada gasto."); }
+  else { sello = ["bad","REVOCA"]; tit = "El tribunal revoca su sentencia"; raz.push("La demanda debía acogerse parcialmente: hay gastos de conservación acreditados y otros que no son exigibles. Se condena al demandado a pagar ₡4.000.000."); }
+  const dp = S.fallos.filter(f => f.cat === "dp" || f.cat === "imp");
+  if (dp.length) raz.push("Además, advierte reparos en la conducción del proceso: " + dp.map(f => f.q.replace(/¿|\?/g,"").toLowerCase()).join("; ") + ".");
+  SFX.sello(); decir(`${tit}.`, "narrador");
+  mostrarHoja(`<p class="eyebrow">Tribunal de Apelación Civil · virtual</p><span class="sello ${sello[0]}">${sello[1]}</span><h2 style="font-size:23px">${tit}</h2><ul class="razones">${raz.map(r=>`<li>${r}</li>`).join("")}</ul><div class="acciones"><button type="button" class="btn" data-sig>Ver Índice de excelencia ▸</button></div>`);
+}
+function rango(t){
+  if (t >= 90) return ["Juez de excelencia","Resolvió conforme a derecho, verificó a la IA y condujo el proceso con imparcialidad. Caso 002 desbloqueado."];
+  if (t >= 70) return ["Sentencia sólida","Buen criterio, con reparos puntuales. Revise los puntos señalados."];
+  if (t >= 50) return ["Criterio en formación","Varias decisiones no resistirían una revisión. Repita el caso con atención a la prueba."];
+  return ["Sentencia vulnerable","El tribunal de alzada tendría mucho que corregir. Vuelva a intentarlo."];
+}
+function mostrarFinal(){
+  const t = total(), [r, txt] = rango(t);
+  try { if (t > (Number(localStorage.getItem("judix-001"))||0)) localStorage.setItem("judix-001", String(t)); } catch(e){}
+  mostrarHoja(`<p class="eyebrow">Caso 001 · La casa en disputa</p><div class="indice-total"><span class="n">${t}</span><span class="d">/ 100 · Índice de excelencia judicial</span></div>
+    <p class="rango">${r}</p><p style="color:var(--muted);max-width:60ch">${txt}</p>
+    <div class="cats">${Object.keys(CAT).map(c=>`<div class="cat"><span>${CAT[c]}</span><span class="s">${S.pts[c]} / ${MAX[c]}</span><span class="b"><i style="width:${Math.round(S.pts[c]/MAX[c]*100)}%"></i></span></div>`).join("")}</div>
+    <div class="acciones"><button type="button" class="btn sec" id="btnPort">Volver a la portada</button><button type="button" class="btn" id="btnRep">Repetir el caso</button></div>`);
+  $("btnPort").addEventListener("click", volver); $("btnRep").addEventListener("click", iniciar);
+}
+
+function avanzar(){ if (S.i < GUION.length-1){ S.i++; pintar(); } }
+async function iniciar(){
+  audioInit(); desbloquearVoz();
+  S = nuevo(); $("portada").hidden = true; $("juego").hidden = false; document.body.style.overflow = "hidden";
+  if (!construida){ construida = true; $("cargando").hidden = false; try { await document.fonts.ready; } catch(e){} iniciar3D(); }
+  $("cargando").hidden = true;
+  asentar(0); if (GL){ camPos.set(0,4.6,9.5); camLook.set(0,1.2,-3.4); }
+  pintar();
+}
+function volver(){ clearTimeout(temporizador); detenerTipeo(); callar(); hablar(null,false); if (SND.ctx) SND.ctx.suspend(); $("juego").hidden = true; $("portada").hidden = false; document.body.style.overflow = ""; record(); window.scrollTo({top:0}); }
+function record(){ let r = 0; try { r = Number(localStorage.getItem("judix-001"))||0; } catch(e){} $("record").textContent = r ? `Su mejor índice en este navegador: ${r}/100.` : ""; }
+
+$("stage").addEventListener("click", () => { if (!$("capaDlg").hidden) continuarDialogo(); });
+addEventListener("keydown", ev => { if ($("juego").hidden) return; if ((ev.key === " " || ev.key === "Enter") && !$("capaDlg").hidden && document.activeElement?.id !== "btnCont"){ ev.preventDefault(); continuarDialogo(); } });
+$("btnSalir").addEventListener("click", volver);
+$("btnVoz").addEventListener("click", () => { VOZ.on = !VOZ.on; $("btnVoz").setAttribute("aria-pressed", VOZ.on); if (!VOZ.on) callar(); });
+$("btnSon").addEventListener("click", () => { audioInit(); setSonido(!SND.on); $("btnSon").setAttribute("aria-pressed", SND.on); });
+if (!VOZ.sup){ $("btnVoz").disabled = true; $("btnVoz").title = "Este navegador no ofrece voz sintetizada"; $("btnVoz").setAttribute("aria-pressed","false"); }
+
+async function start(data){
+  $("btnIniciar").addEventListener("click", iniciar);
+  record();
+  if (data && data.S){ S = data.S; $("portada").hidden = true; $("juego").hidden = false; document.body.style.overflow = "hidden";
+    if (!construida){ construida = true; try { await document.fonts.ready; } catch(e){} iniciar3D(); }
+    $("cargando").hidden = true; asentar(S.i); pintar(); }
+}
+window.claude?.hot?.snapshot?.(() => ({ S: SNAP }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
