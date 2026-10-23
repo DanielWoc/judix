@@ -3938,7 +3938,7 @@ $("btnJornada").addEventListener("click", () => iniciarRapido());
 ["fMat","fProc","fComp"].forEach(id => $(id).addEventListener("change", pintarGrid));
 
 /* Portadas de los casos del catálogo (img/casos/<id>.webp). */
-const PORTADAS = new Set(["c001","c002","p01","p02","p03","p04","p05","p06","p07","p08", ...Array.from({length:18}, (_, i) => "r" + String(i+1).padStart(2,"0"))]);
+const PORTADAS = new Set(["c001","c002","p01","p02","p03","p04","p05","p06","p07","p08", ...Array.from({length:18}, (_, i) => "r" + String(i+1).padStart(2,"0")), ...Array.from({length:8}, (_, i) => "t" + String(i+1).padStart(2,"0"))]);
 /* Inicio: portada con dos opciones (entrar al juego o ver la galería). Los anuncios nunca se reproducen solos. */
 const ANUNCIOS = [
   {tipo:"video", src:"video/intro-1.mp4", mini:"img/anuncios/video-1.jpg", tit:"El Juez Woc en su despacho"},
