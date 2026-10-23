@@ -1,51 +1,29 @@
-# JUDIX · Reglas del proyecto
+# JUDIX — instrucciones permanentes para Claude Code
 
-JUDIX es un videojuego judicial en 3D para el navegador. El jugador es el Juez Woc y resuelve casos de derecho civil costarricense con el apoyo, falible, de una IA jurídica. Estas reglas son obligatorias para cualquier cambio en el repositorio.
+JUDIX es un videojuego docente de simulación judicial civil costarricense (Código Procesal Civil, Ley 9342).
+Autor: MSc. Wálther Obando Corrales. Todo el juego vive en `index.html` (raíz del repositorio; publicado en https://danielwoc.github.io/judix/). La versión anterior está archivada en `v1/` (HTML + CSS + JS en un solo archivo)
+y usa imágenes de `img/`. Los modelos 3D nuevos van en `models/`.
 
-## Reglas obligatorias
+## Estructura de index.html
+- **Pantallas:** `#registro` (perfil: juez, jueza, técnico, técnica + nombre), `#portada` (centro de carrera, catálogo, trayectoria), `#juego` (sala 3D con HUD y capas de diálogo/hoja).
+- **Contenido:** `GUION001` (Caso 001, fases A–F, SALA DE CASACIÓN), `GUION002` (Caso 002, desahucio, TRIBUNAL DE APELACIÓN), `RAPIDOS` (18 casos de despacho rápido), `TEC` (8 expedientes de la carrera técnica).
+- **Motor 3D (three.js r128 UMD):** `humano(o)` construye cada personaje con primitivas; `M` guarda todos los modelos (`M.woc`, `M.juezM`, `M.juezF`, `M.laura`, `M.tecM`, `M.tecF`, `M.mag[]`); `H` contiene los alias que usa el guion (`H.juez` = estrado, `H.laura` = escritorio, `H.vega`, `H.mora`, `H.carlos`, `H.javier`, `H.testigo`); `HUM` es la lista que se anima en `tick()`.
+- **Interfaz de cada personaje (NO romper):** `h.root`, `h.head`, `h.queue`, `h.task`, `h.pose` (`think`, `point`, `give`, `gavel`), `h.talking`, `h.sit/sitT`, `h.walk/walkT`, `h.x/h.z/h.rot/h.rotT`, `h.home`. Las tareas (`stand`, `sit`, `walk`, `face`, `pick`, `give`, `point`, `gavel`, `show`, `hide`, `folderDesk`) se procesan en `tarea(h, dt)`; la animación en `animarHumano(h, dt, t)`.
+- **Reparto por carrera:** `elenco3D()` decide quién ocupa el estrado (jugador o Juez Woc) y el escritorio (Laura o el jugador). `modoTribunal(org)` muestra los tres magistrados.
+- **Personajes realistas:** cada personaje de `humano(o)` recibe, si carga, un modelo con esqueleto de `models/personajes/*.glb` (Microsoft Rocketbox, MIT; véase `models/LICENCIAS.md`), montado dentro de `h.root`; la figura procedimental queda como respaldo. El reparto está en `rigReparto()`; las animaciones (`models/animaciones/`) se aplican en `animarRig()`. Al aplicar un clip, descarte las pistas de huesos que el modelo no tiene (`rigAdaptar()`): en three r128 se aplicarían a la raíz. Para regenerar modelos, véase `herramientas/`.
+- **Audiencia y práctica de pruebas (juicios rápidos con audiencia):** `AUDIENCIAS` (juicios p01 a p08) y su motor (`mostrarProtocolo`, `mostrarReconocimiento`, `ESCENARIOS`, `elencoAudiencia`) están antes de «INICIO DE PARTIDAS». Cada juicio define su reparto (`elenco`: puesto → modelo y género de voz), sus nombres y sus pasos. Orden ordinario de la prueba (art. 41.4 CPC): reconocimiento, declaraciones de parte, peritos y testigos. El reconocimiento judicial (art. 46) nunca da por demostrados hechos históricos. La categoría `prb` («Dirección y práctica de la prueba») se suma a la nota de 100 puntos. El «giro inesperado» del Juicio 03 aparece al azar; `?giro=1` o `?giro=0` lo fuerzan para pruebas. **El contenido de los ocho juicios fue aprobado por el autor el 23 de octubre de 2026; cualquier cambio jurídico posterior requiere su aprobación.**
+- **Presentación:** la primera vez (sin perfil guardado) se muestra la portada y los videos `video/intro-1..3` (MP4 y WebM de respaldo) antes del registro.
+- **LexAi:** usa SIEMPRE las capas originales `img/lexai-torso.webp`, `img/lexai-brazo-izq.webp`, `img/lexai-brazo-der.webp` y el rostro SVG de `lexHTML()`. No sustituirlo por otro robot.
+- **Voces:** `PERFIL` (síntesis del navegador). El género de la voz depende del perfil, nunca del nombre.
 
-1. **Idioma.** Todo el contenido visible del juego, los comentarios del código, los mensajes de commit y la documentación se redactan en español de Costa Rica, con trato de **usted**. No use «tú» ni el voseo, salvo en el lema ya aprobado de la portada («PERO LA JUSTICIA DEPENDE DE VOS»), que se conserva tal cual.
-2. **Imagen del Juez Woc.** El Juez Woc conserva siempre su imagen: **cabello negro, anteojos rectangulares, traje azul marino y corbata roja**. Esto rige para el modelo con esqueleto `modelos/personajes/juez.glb` (texturas teñidas con `herramientas/texturas.py` y anteojos añadidos por `rigAnteojos()` en `js/personajes.js`), para la figura de respaldo (`H.juez` en `js/motor3d.js`: `hair:0x0f0c0b`, `lentes:true`, `suit:0x1a2546`, `tie:0xb01e2a`), para el retrato `img/juez.jpg` y para cualquier ilustración, modelo o recurso nuevo.
-3. **Ningún cambio jurídico sin aprobación.** No se modifica el contenido jurídico sin la aprobación expresa del titular del proyecto. Esa aprobación debe constar antes de editar. Se considera contenido jurídico:
-   - todo `js/caso-001.js` (hechos, pretensión, prueba, facturas, opciones, retroalimentación, citas normativas y montos) y los archivos de casos futuros;
-   - la puntuación: los puntos de cada opción, la rúbrica `MAX` (30 / 30 / 20 / 10 / 10), la puntuación de la clasificación de facturas (4 puntos por acierto) y los umbrales de `rango()`;
-   - los textos del tribunal de apelación en `mostrarApelacion()` y de los rangos en `rango()` (`js/juego.js`).
+## Reglas que no se negocian
+1. No inventar artículos, jurisprudencia ni requisitos procesales. No cambiar el contenido jurídico de los casos sin que el autor lo pida.
+2. Órganos revisores: usar exclusivamente «TRIBUNAL DE APELACIÓN» y «SALA DE CASACIÓN». JUDIX es un juego independiente, sin respaldo institucional.
+3. Juez Woc: hombre blanco, cabello negro lacio peinado con raya a un lado, anteojos, traje entero azul oscuro, camisa celeste y corbata roja.
+4. Personajes ficticios: no reproducir el rostro de personas reales ni de personajes conocidos.
+5. Conservar el pie de autoría, la bandera de Costa Rica, los lemas y la identidad gráfica.
+6. Si se publica como artefacto de Claude: scripts externos solo desde cdnjs.cloudflare.com o cdn.jsdelivr.net/npm con versión exacta (por ejemplo `three@0.128.0`); cada archivo binario ≤ 15 MB.
 
-   Si un cambio técnico obliga a tocar cualquiera de estos elementos, deténgase, explique el motivo y proponga el texto exacto antes de aplicarlo. Las erratas evidentes también se proponen; no se corrigen por cuenta propia.
-
-## Marco jurídico de referencia
-
-El contenido se ajusta al derecho costarricense: Código Civil (Ley N.º 30), Código Procesal Civil (Ley N.º 9342), Código de Comercio (Ley N.º 3284) y Constitución Política. Toda cita normativa nueva debe verificarse contra el texto oficial vigente.
-
-## Estructura
-
-```
-index.html          Portada y contenedor del juego; carga estilos y scripts
-css/estilos.css     Estilos (tema oscuro único, fiel al afiche)
-js/caso-001.js      Caso 001: personajes, facturas, rutas y GUION (contenido jurídico)
-js/motor3d.js       Sala, figuras procedimentales de respaldo, tareas del guion y cámaras (Three.js r128)
-js/personajes.js    Personajes con esqueleto: carga, animaciones, mirada, boca, parpadeo y gestos
-js/vendor/          GLTFLoader y SkeletonUtils de Three.js r128
-js/audio.js         Música y efectos (Web Audio); voces neuronales grabadas, con la del navegador como respaldo
-js/juego.js         Flujo del guion, decisiones, puntuación, apelación e índice final
-img/                Logo, afiche, despacho (fondo sin WebGL), retratos y ventana
-modelos/            Personajes y animaciones GLB (Microsoft Rocketbox, MIT) y LICENCIAS.md
-herramientas/       Guiones de Blender para convertir y teñir modelos
-audio/voces/        Voces neuronales es-CR (MP3) e indice.json con tiempos de palabras y visemas
-herramientas/voces/ Generador de voces con Azure AI Speech (Node.js)
-```
-
-## Notas técnicas
-
-- Los archivos de `js/` son **scripts clásicos**, no módulos: comparten el ámbito global y se cargan en este orden: `caso-001` → `motor3d` → `personajes` → `audio` → `juego`. No cambie ese orden ni los convierta en módulos ES sin revisar las dependencias entre archivos.
-- Los personajes con esqueleto se cargan desde `modelos/` mientras se muestra la portada. Si no llegan en 20 s, o si falta el cargador GLTF, cada personaje conserva su figura procedimental. No elimine `humano()` de `js/motor3d.js`, porque es el respaldo.
-- Al aplicar una animación a un modelo, descarte siempre las pistas de huesos que el modelo no tiene: en Three.js r128 esas pistas se aplican a la raíz del personaje y la desplazan (véase `rigAdaptar()`).
-- **La clave de Azure nunca se guarda en el proyecto.** `generar_voces.mjs` la lee de `AZURE_SPEECH_KEY` y `AZURE_SPEECH_REGION`. No la escriba en código, documentación, commits ni archivos `.env` del repositorio.
-- Las voces se indexan por `personaje|texto exacto`. Si cambia un texto aprobado del guion, regenere las voces (`node herramientas/voces/generar_voces.mjs`); mientras tanto, esa línea usa la voz del navegador. Los anuncios de fase y de apelación del generador replican las plantillas de `js/juego.js`.
-- Juan (es-CR-JuanNeural) da voz a los hombres y María (es-CR-MariaNeural) a las mujeres; el tono de cada personaje está en `PERFILES` del generador.
-- `modelos/LICENCIAS.md` debe acompañar siempre al juego, porque así lo exige la licencia MIT de Rocketbox.
-- Three.js r128 se carga desde cdnjs. Si no hay WebGL o la biblioteca no carga, el juego sigue funcionando con `img/despacho.jpg` de fondo.
-- Las rutas de imágenes en JavaScript son relativas a `index.html`; en `css/estilos.css` son relativas a `css/` (`../img/...`).
-- El juego debe servirse por HTTP (véase `README.md`). Abierto con doble clic (`file://`), Chrome bloquea las texturas WebGL de `img/`.
-- El mejor índice se guarda en `localStorage` con la clave `judix-001`; no la renombre, o se perderán los récords.
-- Después de cada cambio, recorra el caso completo en el navegador y confirme que la consola no muestre errores.
+## Cómo probar
+El juego debe servirse por HTTP (no abrir con doble clic). Desde esta carpeta: `npx serve .` o `python -m http.server 8000`, y abrir http://localhost:8000.
+Antes de terminar cualquier cambio: abrir el juego, registrar un perfil, jugar un expediente de cada carrera y revisar la consola del navegador sin errores.

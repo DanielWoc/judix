@@ -1,6 +1,6 @@
 # Uso: python convertir_avatar.py <fbx> <dir_texturas_png> <salida.glb> <con_normales 0|1>
 import bpy, sys, os
-fbx, tdir, out = sys.argv[-4], sys.argv[-3], sys.argv[-2]  # el cuarto argumento se conserva por compatibilidad
+fbx, tdir, out, normales = sys.argv[-4], sys.argv[-3], sys.argv[-2], sys.argv[-1] == "1"
 FORMAS = {"AK_25_JawOpen":"bocaAbierta", "AA_VI_10_aa":"visemaA", "AA_VI_13_O":"visemaO", "AA_VI_01_PP":"visemaP",
           "AK_09_EyeBlinkLeft":"parpadeoI", "AK_10_EyeBlinkRight":"parpadeoD", "AK_44_MouthSmileLeft":"sonrisaI", "AK_45_MouthSmileRight":"sonrisaD"}
 bpy.ops.wm.read_factory_settings(use_empty=True)

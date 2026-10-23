@@ -1,4 +1,4 @@
-# Uso: python convertir_anim.py <fbx> <salida.glb> <nombre_clip> <paso_de_muestreo>
+# Uso: python convertir_anim.py <fbx> <salida.glb> <nombre_clip>
 import bpy, sys, os
 fbx, out, nombre, paso = sys.argv[-4], sys.argv[-3], sys.argv[-2], int(sys.argv[-1])
 import re
